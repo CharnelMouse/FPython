@@ -173,7 +173,10 @@ class Forth:
         self.execute_valid_word(index, token, check=True)
 
     def do(self, str):
-        for token in tokenise(str):
+        tokens = tokenise(str)
+        while len(tokens) > 0:
+            token = tokens[0]
+            tokens = tokens[1:]
             match self.state:
                 case State.Execute:
                     if token == ":":
