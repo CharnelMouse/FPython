@@ -16,6 +16,9 @@ Words are stored with their expected minimum input stack size, and relative outp
 This is also done for words defined by the user, and done by making use of the same information for the words it calls.
 If I ever let users define new "basic" words (equivalent to Forth letting words be written in Assembly),
 then I'd need to think about how to handle it there.
+When words are executed, the input stack and output are checked against this information.
+For compound words, called words are not themselves checked, because their stack conditions
+are already satisfied when calculating the conditions for the calling word.
 
 The name of a word is kept separate from the definition/body.
 This means that words with the same definition all point to the same definition, so the names are really just current aliases.

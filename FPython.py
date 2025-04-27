@@ -117,20 +117,22 @@ class Forth:
         self.val = None
         return
 
-    def execute_valid_word(self, index, token):
+    def execute_valid_word(self, index, token, check=False):
         lin, lout, word_type, word = self.dictionary[index]
-        if (len(self.data) < lin):
-            raise RuntimeError(
-                "Data stack underflow: " + token)
+        if check:
+            if (len(self.data) < lin):
+                raise RuntimeError(
+                    "Data stack underflow: " + token)
         match word_type:
             case Word.Base:
                 used = self.data[-lin:]
                 rest = self.data[:-lin]
                 new = word(used)
-                if (len(new) != lout):
-                    self.reset_state(data=True)
-                    raise RuntimeError(
-                        "Word output size error: " + token)
+                if check:
+                    if (len(new) != lout):
+                        self.reset_state()
+                        raise RuntimeError(
+                            "Word output size error: " + token)
                 self.data = rest + new
             case Word.Compound:
                 for (object_type, object) in word:
@@ -138,11 +140,13 @@ class Forth:
                         case Object.Literal:
                             self.data.append(object)
                         case Object.Word:
+                            # no check for subwords, since we checked they will
+                            # have sufficient stack at compile time
                             self.execute_valid_word(object, token)
 
     def execute_valid_token(self, token):
         index = self.names[token]
-        self.execute_valid_word(index, token)
+        self.execute_valid_word(index, token, check=True)
 
     def do(self, str):
         for token in tokenise(str):
