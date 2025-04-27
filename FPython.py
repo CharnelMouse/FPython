@@ -59,13 +59,16 @@ class Forth:
                 self.data.append(number)
         return
 
+    def S(self):
+        return self.data.copy()
+
 
 f = Forth()
 f.do("1 2 drop")
-assert f.data == [1]
+assert f.S() == [1]
 del f
 
 f = Forth()
 f.do("1 2 +")
-assert f.data == [3]
+assert f.S() == [3]
 del f
