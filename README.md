@@ -6,6 +6,8 @@ This is currently a single-file project, with simple tests included alongside fu
 ## Features
 
 The main Forth() class is used to contain the state of the Forth session, including the data stack.
+Optionally, a session can be silent, i.e. not printing any output or prompts.
+This is mostly intended for making the tests silent.
 
 Printing the data stack is currently a dedicated Forth class method.
 I'll change this later to be a word within the Forth.
