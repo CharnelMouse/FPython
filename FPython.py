@@ -81,6 +81,17 @@ class Forth:
         self.state = State.Execute
         self.val = None
 
+    def reset_state(self, data):
+        if data:
+            self.data.clear()  # intended for runtime errors
+        self.state = State.Execute
+        self.val = None
+        return
+
+    def fail(self, str):
+        self.reset_state(data=True)
+        raise RuntimeError(str)
+
     def trace(self, token):
         if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
@@ -130,23 +141,14 @@ class Forth:
         try:
             number = int(token)
         except Exception:
-            self.reset_state(data=True)
-            raise RuntimeError("Undefined word: " + token)
+            self.fail("Undefined word: " + token)
         return number
-
-    def reset_state(self, data=False):
-        if data:
-            self.data.clear()  # intended for runtime errors
-        self.state = State.Execute
-        self.val = None
-        return
 
     def execute_valid_word(self, index, token, check=False):
         lin, lout, word_type, word = self.dictionary[index]
         if check:
             if (len(self.data) < lin):
-                raise RuntimeError(
-                    "Data stack underflow: " + token)
+                self.fail("Data stack underflow: " + token)
         match word_type:
             case Word.Base:
                 used = self.data[-lin:]
@@ -154,9 +156,7 @@ class Forth:
                 new = word(used)
                 if check:
                     if (len(new) != lout):
-                        self.reset_state()
-                        raise RuntimeError(
-                            "Word output size error: " + token)
+                        self.fail("Word output size error: " + token)
                 self.data = rest + new
             case Word.Compound:
                 for (object_type, object) in word:
@@ -225,8 +225,7 @@ class Forth:
                         self.val[3].append((Object.Literal, number))
                         self.val[2] += 1
         if self.state != State.Execute:
-            self.reset_state(data=True)
-            raise RuntimeError("incomplete program")
+            self.fail("incomplete program")
         if not self.silent:
             print("ok")
         return
