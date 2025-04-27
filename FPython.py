@@ -87,6 +87,21 @@ class Forth:
         lin, lout, _, _ = self.dictionary[self.names[token]]
         return lin, lout
 
+    def compile_word(self):
+        name = self.val[0]
+        entry = (
+            self.val[1],
+            self.val[2],
+            Word.Compound,
+            self.val[3]
+        )
+        try:
+            index = self.dictionary.index(entry)
+            self.names[name] = index
+        except Exception:
+            self.names[name] = len(self.dictionary)
+            self.dictionary.append(entry)
+
     def reset_state(self, data=False):
         if data:
             self.data.clear()  # intended for runtime errors
@@ -148,35 +163,11 @@ class Forth:
                             object_type, object = self.val[3][0]
                             match object_type:
                                 case Object.Literal:
-                                    name = self.val[0]
-                                    entry = (
-                                        self.val[1],
-                                        self.val[2],
-                                        Word.Compound,
-                                        self.val[3]
-                                    )
-                                    try:
-                                        index = self.dictionary.index(entry)
-                                        self.names[name] = index
-                                    except Exception:
-                                        self.names[name] = len(self.dictionary)
-                                        self.dictionary.append(entry)
+                                    self.compile_word()
                                 case Object.Word:
                                     self.names[self.val[0]] = object
                         else:
-                            name = self.val[0]
-                            entry = (
-                                self.val[1],
-                                self.val[2],
-                                Word.Compound,
-                                self.val[3]
-                            )
-                            try:
-                                index = self.dictionary.index(entry)
-                                self.names[name] = index
-                            except Exception:
-                                self.names[name] = len(self.dictionary)
-                                self.dictionary.append(entry)
+                            self.compile_word()
                         self.reset_state(data=False)
                     elif token == "literal":
                         value = self.data.pop()
