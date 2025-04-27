@@ -192,6 +192,9 @@ class Forth:
                         number = self.number_or_fail(token)
                         self.val[3].append((Object.Literal, number))
                         self.val[2] += 1
+        if self.state != State.Execute:
+            self.reset_state(data=True)
+            raise RuntimeError("incomplete program")
         if not self.silent:
             print("ok")
         return
@@ -247,4 +250,13 @@ del f
 f = Forth(True)
 f.do(": tst 1 2 + ; : tst2 tst 5 * ; tst2")
 assert f.S() == [15]
+del f
+
+# fails if stopped half-way through a definition
+f = Forth(True)
+try:
+    f.do(": tst 1")
+    raise RuntimeError("didn't fail")
+except Exception:
+    pass
 del f
