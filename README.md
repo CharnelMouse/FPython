@@ -32,3 +32,7 @@ or
 `: add + ; : + add ;`
 and have `+` end up with its original definition, instead of adding unnecessary layers of indirection.
 Compile-time execution is done using `[` and `]`, as usual.
+
+The orphans method shows which definitions are neither called by other words, nor currently assigned an alias.
+"Called by other words" includes calling itself, which isn't quite right, but there's currently no way to define a word as calling itself.
+The plan for this method is as part of allowing the user to ask the session to prune its dictionary.

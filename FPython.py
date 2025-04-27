@@ -87,6 +87,30 @@ class Forth:
         lin, lout, _, _ = self.dictionary[self.names[token]]
         return lin, lout
 
+    def orphans(self):
+        old = []
+        new = list(set(self.names.values()))
+        while len(new) > 0:
+            old.append(new[0])
+            new = new[1:]
+            for index in new:
+                _, _, word_type, word = self.dictionary[index]
+                match word_type:
+                    case Word.Compound:
+                        children = [
+                            index
+                            for (type, index) in word
+                            if type == Object.Word
+                            and index not in old
+                            and index not in new
+                        ]
+                        new += children
+        return [
+            index
+            for index in range(len(self.dictionary))
+            if index not in old
+        ]
+
     def compile_word(self):
         name = self.val[0]
         entry = (
@@ -273,4 +297,18 @@ del f
 f = Forth(True)
 f.do("1 : tst literal ; : tst2 [ 2 3 + ] literal ; tst tst2")
 assert f.S() == [1, 5]
+del f
+
+# words are correctly marked as orphans
+f = Forth(True)
+f.do(": a 1 ; : b a 2 ; : c b 3 ;")
+start = f.names["a"]
+assert f.orphans() == []
+f.do(": a 4 ;")
+assert f.orphans() == []
+f.do(": b 5 ;")
+assert f.orphans() == []
+f.do(": c 6 ;")
+assert f.orphans() == list(range(start, start + 3))
+del start
 del f
