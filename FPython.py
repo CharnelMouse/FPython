@@ -20,42 +20,52 @@ assert tokens == ['1', '2', '+']
 del tokens
 
 
-def do(str):
-    data = []
-    words = {
-        "drop": (1, 0, lambda x: []),
-        "dup": (1, 2, lambda x: x + x),
-        "+": (2, 1, lambda x: [x[0] + x[1]]),
-        "-": (2, 1, lambda x: [x[0] - x[1]]),
-        "*": (2, 1, lambda x: [x[0] * x[1]]),
-        "/": (2, 1, lambda x: [x[0] // x[1]]),
-        "swap": (2, 2, lambda x: list(reversed(x))),
-        "over": (2, 3, lambda x: [x[0], x[1], x[0]]),
-        "tuck": (2, 3, lambda x: [x[1], x[0], x[1]]),
-        "rot": (3, 3, lambda x: [x[1], x[2], x[0]]),
-        "-rot": (3, 3, lambda x: [x[2], x[0], x[1]]),
-    }
-    for token in tokenise(str):
-        if token in words.keys():
-            lin, lout, word = words[token]
-            if (len(data) < lin):
-                raise RuntimeError(
-                    "Data stack underflow: " + token)
-            used = data[-lin:]
-            rest = data[:-lin]
-            new = word(used)
-            if (len(new) != lout):
-                raise RuntimeError(
-                    "Word output size error: " + token)
-            data = rest + new
-        else:
-            try:
-                number = int(token)
-            except Exception:
-                raise RuntimeError("Undefined word: " + token)
-            data.append(number)
-    return data
+class Forth:
+    def __init__(self):
+        self.data = []
+        self.words = {
+            "drop": (1, 0, lambda x: []),
+            "dup": (1, 2, lambda x: x + x),
+            "+": (2, 1, lambda x: [x[0] + x[1]]),
+            "-": (2, 1, lambda x: [x[0] - x[1]]),
+            "*": (2, 1, lambda x: [x[0] * x[1]]),
+            "/": (2, 1, lambda x: [x[0] // x[1]]),
+            "swap": (2, 2, lambda x: list(reversed(x))),
+            "over": (2, 3, lambda x: [x[0], x[1], x[0]]),
+            "tuck": (2, 3, lambda x: [x[1], x[0], x[1]]),
+            "rot": (3, 3, lambda x: [x[1], x[2], x[0]]),
+            "-rot": (3, 3, lambda x: [x[2], x[0], x[1]]),
+        }
+
+    def do(self, str):
+        for token in tokenise(str):
+            if token in self.words.keys():
+                lin, lout, word = self.words[token]
+                if (len(self.data) < lin):
+                    raise RuntimeError(
+                        "Data stack underflow: " + token)
+                used = self.data[-lin:]
+                rest = self.data[:-lin]
+                new = word(used)
+                if (len(new) != lout):
+                    raise RuntimeError(
+                        "Word output size error: " + token)
+                self.data = rest + new
+            else:
+                try:
+                    number = int(token)
+                except Exception:
+                    raise RuntimeError("Undefined word: " + token)
+                self.data.append(number)
+        return
 
 
-assert do("1 2 drop") == [1]
-assert do("1 2 +") == [3]
+f = Forth()
+f.do("1 2 drop")
+assert f.data == [1]
+del f
+
+f = Forth()
+f.do("1 2 +")
+assert f.data == [3]
+del f
