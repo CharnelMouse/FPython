@@ -28,3 +28,4 @@ It also means, for example, that we can write
 or
 `: add + ; : + add ;`
 and have `+` end up with its original definition, instead of adding unnecessary layers of indirection.
+Compile-time execution is done using `[` and `]`, as usual.

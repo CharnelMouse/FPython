@@ -150,6 +150,8 @@ class Forth:
                 case State.Execute:
                     if token == ":":
                         self.state = State.Word
+                    elif token == "]":
+                        self.state = State.Compile
                     elif token in self.names.keys():
                         self.execute_valid_token(token)
                     else:
@@ -173,6 +175,8 @@ class Forth:
                         else:
                             self.compile_word()
                         self.reset_state(data=False)
+                    elif token == "[":
+                        self.state = State.Execute
                     elif token == "literal":
                         value = self.data.pop()
                         self.val[3].append((Object.Literal, value))
@@ -259,4 +263,10 @@ try:
     raise RuntimeError("didn't fail")
 except Exception:
     pass
+del f
+
+# allows execution at compile time
+f = Forth(True)
+f.do("1 : tst literal ; : tst2 [ 2 3 + ] literal ; tst tst2")
+assert f.S() == [1, 5]
 del f
