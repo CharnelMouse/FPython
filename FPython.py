@@ -102,6 +102,14 @@ class Forth:
             self.names[name] = len(self.dictionary)
             self.dictionary.append(entry)
 
+    def number_or_fail(self, token):
+        try:
+            number = int(token)
+        except Exception:
+            self.reset_state(data=True)
+            raise RuntimeError("Undefined word: " + token)
+        return number
+
     def reset_state(self, data=False):
         if data:
             self.data.clear()  # intended for runtime errors
@@ -145,11 +153,7 @@ class Forth:
                     elif token in self.names.keys():
                         self.execute_valid_token(token)
                     else:
-                        try:
-                            number = int(token)
-                        except Exception:
-                            self.reset_state(data=True)
-                            raise RuntimeError("Undefined word: " + token)
+                        number = self.number_or_fail(token)
                         self.data.append(number)
                 case State.Word:
                     self.state = State.Compile
@@ -185,11 +189,7 @@ class Forth:
                         if diff < 0:
                             self.val[2] -= diff
                     else:
-                        try:
-                            number = int(token)
-                        except Exception:
-                            self.reset_state()
-                            raise RuntimeError("Undefined word: " + token)
+                        number = self.number_or_fail(token)
                         self.val[3].append((Object.Literal, number))
                         self.val[2] += 1
         if not self.silent:
