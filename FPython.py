@@ -49,28 +49,42 @@ class Forth:
             dot_word = (1, 0, Word.Base, lambda x: [])
         else:
             dot_word = (1, 0, Word.Base, fp)
-        self.words = {
-            "drop": (1, 0, Word.Base, lambda x: []),
-            ".": dot_word,
-            "dup": (1, 2, Word.Base, lambda x: x + x),
-            "+": (2, 1, Word.Base, lambda x: [x[0] + x[1]]),
-            "-": (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
-            "*": (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
-            "/": (2, 1, Word.Base, lambda x: [x[0] // x[1]]),
-            "swap": (2, 2, Word.Base, lambda x: list(reversed(x))),
-            "over": (2, 3, Word.Base, lambda x: [x[0], x[1], x[0]]),
-            "tuck": (2, 3, Word.Base, lambda x: [x[1], x[0], x[1]]),
-            "rot": (3, 3, Word.Base, lambda x: [x[1], x[2], x[0]]),
-            "-rot": (3, 3, Word.Base, lambda x: [x[2], x[0], x[1]]),
+        self.dictionary = [
+            (1, 0, Word.Base, lambda x: []),
+            dot_word,
+            (1, 2, Word.Base, lambda x: x + x),
+            (2, 1, Word.Base, lambda x: [x[0] + x[1]]),
+            (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
+            (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
+            (2, 1, Word.Base, lambda x: [x[0] // x[1]]),
+            (2, 2, Word.Base, lambda x: list(reversed(x))),
+            (2, 3, Word.Base, lambda x: [x[0], x[1], x[0]]),
+            (2, 3, Word.Base, lambda x: [x[1], x[0], x[1]]),
+            (3, 3, Word.Base, lambda x: [x[1], x[2], x[0]]),
+            (3, 3, Word.Base, lambda x: [x[2], x[0], x[1]]),
+        ]
+        self.names = {
+            "drop": 0,
+            ".": 1,
+            "dup": 2,
+            "+": 3,
+            "-": 4,
+            "*": 5,
+            "/": 6,
+            "swap": 7,
+            "over": 8,
+            "tuck": 9,
+            "rot": 10,
+            "-rot": 11,
         }
         self.silent = silent
         self.state = State.Execute
         self.val = None
 
     def trace(self, token):
-        if token not in self.words.keys():
+        if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
-        lin, lout, _, _ = self.words[token]
+        lin, lout, _, _ = self.dictionary[self.names[token]]
         return lin, lout
 
     def reset_state(self, data=False):
@@ -80,8 +94,8 @@ class Forth:
         self.val = None
         return
 
-    def execute_valid_word(self, name, token):
-        lin, lout, word_type, word = self.words[name]
+    def execute_valid_word(self, index, token):
+        lin, lout, word_type, word = self.dictionary[index]
         if (len(self.data) < lin):
             raise RuntimeError(
                 "Data stack underflow: " + token)
@@ -104,8 +118,8 @@ class Forth:
                             self.execute_valid_word(object, token)
 
     def execute_valid_token(self, token):
-        name = token
-        self.execute_valid_word(name, token)
+        index = self.names[token]
+        self.execute_valid_word(index, token)
 
     def do(self, str):
         for token in tokenise(str):
@@ -113,7 +127,7 @@ class Forth:
                 case State.Execute:
                     if token == ":":
                         self.state = State.Word
-                    elif token in self.words.keys():
+                    elif token in self.names.keys():
                         self.execute_valid_token(token)
                     else:
                         try:
@@ -128,7 +142,7 @@ class Forth:
                 case State.Compile:
                     if token == ";":
                         if not self.silent:
-                            if self.val[0] in self.words.keys():
+                            if self.val[0] in self.names.keys():
                                 print(self.val[0] + " is redefined")
                         name = self.val[0]
                         entry = (
@@ -137,16 +151,18 @@ class Forth:
                             Word.Compound,
                             self.val[3]
                         )
-                        self.words[name] = entry
+                        self.names[name] = len(self.dictionary)
+                        self.dictionary.append(entry)
                         self.reset_state(data=False)
                     elif token == "literal":
                         value = self.data.pop()
                         self.val[3].append((Object.Literal, value))
                         self.val[2] += 1
-                    elif token in self.words.keys():
-                        self.val[3].append((Object.Word, token))
+                    elif token in self.names.keys():
+                        index = self.names[token]
+                        self.val[3].append((Object.Word, index))
                         old_lout = self.val[2]
-                        new_lin, new_lout, _, _ = self.words[token]
+                        new_lin, new_lout, _, _ = self.dictionary[index]
                         diff = new_lin - old_lout
                         self.val[2] = new_lout
                         if diff > 0:
