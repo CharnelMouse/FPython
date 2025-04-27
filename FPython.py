@@ -144,19 +144,39 @@ class Forth:
                         if not self.silent:
                             if self.val[0] in self.names.keys():
                                 print(self.val[0] + " is redefined")
-                        name = self.val[0]
-                        entry = (
-                            self.val[1],
-                            self.val[2],
-                            Word.Compound,
-                            self.val[3]
-                        )
-                        try:
-                            index = self.dictionary.index(entry)
-                            self.names[name] = index
-                        except Exception:
-                            self.names[name] = len(self.dictionary)
-                            self.dictionary.append(entry)
+                        if (len(self.val[3]) == 1):
+                            object_type, object = self.val[3][0]
+                            match object_type:
+                                case Object.Literal:
+                                    name = self.val[0]
+                                    entry = (
+                                        self.val[1],
+                                        self.val[2],
+                                        Word.Compound,
+                                        self.val[3]
+                                    )
+                                    try:
+                                        index = self.dictionary.index(entry)
+                                        self.names[name] = index
+                                    except Exception:
+                                        self.names[name] = len(self.dictionary)
+                                        self.dictionary.append(entry)
+                                case Object.Word:
+                                    self.names[self.val[0]] = object
+                        else:
+                            name = self.val[0]
+                            entry = (
+                                self.val[1],
+                                self.val[2],
+                                Word.Compound,
+                                self.val[3]
+                            )
+                            try:
+                                index = self.dictionary.index(entry)
+                                self.names[name] = index
+                            except Exception:
+                                self.names[name] = len(self.dictionary)
+                                self.dictionary.append(entry)
                         self.reset_state(data=False)
                     elif token == "literal":
                         value = self.data.pop()
@@ -217,6 +237,13 @@ del f
 f = Forth(True)
 f.do(": a 1 + ; : b 1 + ;")
 assert f.names["a"] == f.names["b"]
+del f
+
+# if a defined word just calls a single other word,
+# it just takes the same body
+f = Forth(True)
+f.do(": add + ;")
+assert f.names["add"] == f.names["+"]
 del f
 
 # compound words call base words properly

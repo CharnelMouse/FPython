@@ -21,3 +21,10 @@ The name of a word is kept separate from the definition/body.
 This means that words with the same definition all point to the same definition, so the names are really just current aliases.
 This is something I saw being done for the Unison language, which stores the code base in a permanent database, and compiles called words as direct hashes instead of using their given name.
 Outside of these details, Unison function code storage screamed "modern take on a Forth dictionary" to me, so I'm putting it in this Forth.
+If a word is defined as just calling a second word, then it's compiled as an alias of that word.
+This allows aliases to be assigned to existing base words.
+It also means, for example, that we can write
+`: + + ;`
+or
+`: add + ; : + add ;`
+and have `+` end up with its original definition, instead of adding unnecessary layers of indirection.
