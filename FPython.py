@@ -151,8 +151,12 @@ class Forth:
                             Word.Compound,
                             self.val[3]
                         )
-                        self.names[name] = len(self.dictionary)
-                        self.dictionary.append(entry)
+                        try:
+                            index = self.dictionary.index(entry)
+                            self.names[name] = index
+                        except Exception:
+                            self.names[name] = len(self.dictionary)
+                            self.dictionary.append(entry)
                         self.reset_state(data=False)
                     elif token == "literal":
                         value = self.data.pop()
@@ -207,6 +211,12 @@ del f
 f = Forth(True)
 f.do("1 : tst ;")
 assert f.S() == [1]
+del f
+
+# words with same definition point to same entry
+f = Forth(True)
+f.do(": a 1 + ; : b 1 + ;")
+assert f.names["a"] == f.names["b"]
 del f
 
 # compound words call base words properly
