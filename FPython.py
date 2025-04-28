@@ -56,7 +56,9 @@ class Forth:
             (1, 0, Word.Base, lambda x: self.place(x[0])),
             (1, 0, Word.Base, lambda x: []),
             dot_word,
+            (1, 1, Word.Base, lambda x: self.fetch(x[0])),
             (1, 2, Word.Base, lambda x: x + x),
+            (2, 0, Word.Base, lambda x: self.store(x[0], x[1])),
             (2, 1, Word.Base, lambda x: [x[0] + x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
@@ -72,16 +74,18 @@ class Forth:
             ",": 1,
             "drop": 2,
             ".": 3,
-            "dup": 4,
-            "+": 5,
-            "-": 6,
-            "*": 7,
-            "/": 8,
-            "swap": 9,
-            "over": 10,
-            "tuck": 11,
-            "rot": 12,
-            "-rot": 13,
+            "@": 4,
+            "dup": 5,
+            "!": 6,
+            "+": 7,
+            "-": 8,
+            "*": 9,
+            "/": 10,
+            "swap": 11,
+            "over": 12,
+            "tuck": 13,
+            "rot": 14,
+            "-rot": 15,
         }
         self.silent = silent
         self.state = State.Execute
@@ -90,6 +94,16 @@ class Forth:
     def place(self, value):
         self.memory.append(value)
         self.here += 1  # measured in cells for now
+        return []
+
+    def fetch(self, index):
+        return [0] if index >= len(self.memory) else [self.memory[index]]
+
+    def store(self, value, index):
+        if index >= len(self.memory):
+            extra = index - len(self.memory) + 1
+            self.memory += extra*[0]
+        self.memory[index] = value
         return []
 
     def reset_state(self, data):
@@ -365,4 +379,29 @@ del f
 f = Forth(True)
 f.do(": tst here 2 * , ; tst tst")
 assert f.memory == [0, 2]
+del f
+
+# can fetch
+f = Forth(True)
+f.do("10 , 0 @")
+assert f.S() == [10]
+del f
+
+# can "fetch" from unassigned memory, returning 0
+f = Forth(True)
+f.do("0 @")
+assert f.S() == [0]
+del f
+
+# can store within memory already allocated
+f = Forth(True)
+f.do("0 , 10 0 ! 0 @")
+assert f.S() == [10]
+del f
+
+# can store within memory not previously allocated, placing zeroes in gap,
+# doesn't move here
+f = Forth(True)
+f.do("10 5 ! 0 @ 1 @ 2 @ 3 @ 4 @ 5 @ here")
+assert f.S() == [0, 0, 0, 0, 0, 10, 0]
 del f
