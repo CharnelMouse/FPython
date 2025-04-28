@@ -103,6 +103,11 @@ class Forth:
             "rot": 22,
             "-rot": 23,
         }
+        self.lengths = array('b', [
+            1 if x[2] == Word.Base
+            else len(x[3])
+            for x in self.dictionary
+        ])
         self.silent = silent
         self.state = State.Execute
         self.val = None
@@ -116,7 +121,10 @@ class Forth:
         return [0] if index >= len(self.memory) else [self.memory[index]]
 
     def rFetch(self):
-        return [self.ret.pop()]
+        caller_ret = self.ret.pop()
+        res = [self.ret.pop()]
+        self.ret.append(caller_ret)
+        return res
 
     def store(self, value, index):
         if index >= len(self.memory):
@@ -126,7 +134,9 @@ class Forth:
         return []
 
     def rStore(self, value):
+        caller_ret = self.ret.pop()
         self.ret.append(value)
+        self.ret.append(caller_ret)
         return []
 
     def reset_state(self, data):
@@ -184,6 +194,7 @@ class Forth:
         except Exception:
             self.names[name] = len(self.dictionary)
             self.dictionary.append(entry)
+            self.lengths.append(len(self.val[3]))
 
     def number_or_fail(self, token):
         try:
@@ -192,37 +203,75 @@ class Forth:
             self.fail("Undefined word: " + token)
         return number
 
-    def execute_valid_word(self, index, token, check=False):
-        lin, lout, word_type, word = self.dictionary[index]
-        if check:
-            if (len(self.data) < lin):
-                self.fail("Data stack underflow: " + token)
-        match word_type:
-            case Word.Base:
-                if lin == 0:
-                    used = []
-                    rest = self.data
-                else:
-                    used = self.data[-lin:]
-                    rest = self.data[:-lin]
-                new = word(used)
-                if check:
-                    if (len(new) != lout):
-                        self.fail("Word output size error: " + token)
-                self.data = rest + array('b', new)
-            case Word.Compound:
-                for (object_type, object) in word:
-                    match object_type:
-                        case Object.Literal:
-                            self.data.append(object)
-                        case Object.Word:
-                            # no check for subwords, since we checked they will
-                            # have sufficient stack at compile time
-                            self.execute_valid_word(object, token)
+    def execute_return_stack(self, token, check=False):
+        while len(self.ret) > 0:
+            current = self.ret.pop()
+            if current == -1:
+                continue
+
+            dictionary_index = 0
+            offset = 0
+            s = 0
+            # while current is start of next entry or later
+            while dictionary_index < len(self.lengths):
+                s2 = s + self.lengths[dictionary_index]
+                if s2 > current:
+                    break
+                s += self.lengths[dictionary_index]
+                dictionary_index += 1
+            if dictionary_index == len(self.lengths):
+                continue
+            assert s == sum(self.lengths[:dictionary_index])
+            offset = current - s
+            assert 0 <= offset < self.lengths[dictionary_index]
+
+            lin, lout, word_type, word = self.dictionary[dictionary_index]
+            if check and offset == 0:  # check stack size at beginning of word
+                if (len(self.data) < lin):
+                    self.fail("Data stack underflow: " + token)
+            match word_type:
+                case Word.Base:
+                    # execute the word, leave nothing back on the return stack
+                    assert offset == 0
+                    if lin == 0:
+                        used = []
+                        rest = self.data
+                    else:
+                        used = self.data[-lin:]
+                        rest = self.data[:-lin]
+                    new = word(used)
+                    if check:
+                        if (len(new) != lout):
+                            self.fail("Word output size error: " + token)
+                    self.data = rest + array('b', new)
+                case Word.Compound:
+                    # add all initial literals
+                    while offset < len(word):
+                        object_type, object = word[offset]
+                        if object_type != Object.Literal:
+                            break
+                        self.data.append(object)
+                        offset += 1
+                    if offset == len(word):
+                        continue
+                    object_type, object = word[offset]
+                    assert object_type == Object.Word
+                    nxt = sum(self.lengths[:object])
+                    # if nxt is not last element of current
+                    if offset < self.lengths[dictionary_index] - 1:
+                        # ... put next element on return stack
+                        self.ret.append(s + offset + 1)
+                    else:
+                        # ... put -1 on return stack, signifying a RET
+                        self.ret.append(-1)
+                    self.ret.append(nxt)
+                    check = False
 
     def execute_valid_token(self, token):
         index = self.names[token]
-        self.execute_valid_word(index, token, check=True)
+        word_offset = sum(self.lengths[:index])
+        self.ret.append(word_offset)
+        self.execute_return_stack(token, check=True)
 
     def do(self, str):
         def pop_token():
@@ -503,8 +552,18 @@ f.do(": ( same as plus ) tst + ;")
 assert f.names["tst"] == f.names["+"]
 del f
 
-# can use return stack (currently not used for returns)
+# can use return stack to store values
 f = Forth(True)
-f.do("1 2 3 >r swap r>")
-assert f.S() == [2, 1, 3]
+f.do(": tst >r r> ; 123 tst")
+assert f.S() == [123]
+del f
+f = Forth(True)
+f.do(": tst >r r> dup >r r> drop ; 123 tst")
+assert f.S() == [123]
+del f
+
+# uses return stack for returns, tracks by word index and current position
+f = Forth(True)
+f.do(": tst r> drop ; : tst2 1 tst 2 + ; tst2")
+assert f.S() == [1]
 del f
