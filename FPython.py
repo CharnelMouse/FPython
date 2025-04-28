@@ -204,8 +204,7 @@ class Forth:
     def do(self, str):
         tokens = tokenise(str)
         while len(tokens) > 0:
-            token = tokens[0]
-            tokens = tokens[1:]
+            token = tokens.pop(0)
             match self.state:
                 case State.Execute:
                     if token == ":":
@@ -215,8 +214,7 @@ class Forth:
                     elif token == "create":
                         if len(tokens) == 0:
                             self.fail("No target for create")
-                        name = tokens[0]
-                        tokens = tokens[1:]
+                        name = tokens.pop(0)
                         self.val = (name, 0, 1, [(Object.Literal, self.here)])
                         self.compile_word()
                         self.reset_state(data=False)
