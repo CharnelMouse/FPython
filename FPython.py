@@ -1,11 +1,9 @@
-import re
 from array import array
 from enum import Enum
 
 
 def tokenise(str):
-    tokens = re.split(r"\s+", str)
-    return [token for token in tokens if token != ""]
+    return str.split()
 
 
 # can handle an empty input
