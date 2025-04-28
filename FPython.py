@@ -39,6 +39,7 @@ class State(Enum):
 class Object(Enum):
     Literal = 1
     Word = 2
+    Return = 3
 
 
 class Forth:
@@ -181,6 +182,7 @@ class Forth:
         ]
 
     def compile_word(self):
+        self.val[3].append((Object.Return, 0))
         name = self.val[0]
         entry = (
             self.val[1],
@@ -206,8 +208,6 @@ class Forth:
     def execute_return_stack(self, token, check=False):
         while len(self.ret) > 0:
             current = self.ret.pop()
-            if current == -1:
-                continue
 
             dictionary_index = 0
             offset = 0
@@ -255,15 +255,12 @@ class Forth:
                     if offset == len(word):
                         continue
                     object_type, object = word[offset]
+                    if object_type == Object.Return:
+                        continue
                     assert object_type == Object.Word
                     nxt = sum(self.lengths[:object])
-                    # if nxt is not last element of current
-                    if offset < self.lengths[dictionary_index] - 1:
-                        # ... put next element on return stack
-                        self.ret.append(s + offset + 1)
-                    else:
-                        # ... put -1 on return stack, signifying a RET
-                        self.ret.append(-1)
+                    # not Return -> not last element, so can push next one
+                    self.ret.append(s + offset + 1)
                     self.ret.append(nxt)
                     check = False
 
