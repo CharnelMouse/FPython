@@ -205,7 +205,7 @@ class Forth:
             self.fail("Undefined word: " + token)
         return number
 
-    def execute_return_stack(self, token, check=False):
+    def resolve_return_stack(self, token, check=False):
         while len(self.ret) > 0:
             current = self.ret.pop()
 
@@ -220,7 +220,7 @@ class Forth:
                 s += self.lengths[dictionary_index]
                 dictionary_index += 1
             if dictionary_index == len(self.lengths):
-                continue
+                self.fail("Return stack lookup failure: " + token)
             assert s == sum(self.lengths[:dictionary_index])
             offset = current - s
             assert 0 <= offset < self.lengths[dictionary_index]
@@ -268,7 +268,7 @@ class Forth:
         index = self.names[token]
         word_offset = sum(self.lengths[:index])
         self.ret.append(word_offset)
-        self.execute_return_stack(token, check=True)
+        self.resolve_return_stack(token, check=True)
 
     def do(self, str):
         def pop_token():
