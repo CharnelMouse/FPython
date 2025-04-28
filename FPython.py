@@ -45,11 +45,15 @@ class Object(Enum):
 class Forth:
     def __init__(self, silent=False):
         self.data = []
+        self.memory = []
+        self.here = 0
         if silent:
             dot_word = (1, 0, Word.Base, lambda x: [])
         else:
             dot_word = (1, 0, Word.Base, fp)
         self.dictionary = [
+            (0, 1, Word.Base, lambda x: [self.here]),
+            (1, 0, Word.Base, lambda x: self.place(x[0])),
             (1, 0, Word.Base, lambda x: []),
             dot_word,
             (1, 2, Word.Base, lambda x: x + x),
@@ -64,22 +68,29 @@ class Forth:
             (3, 3, Word.Base, lambda x: [x[2], x[0], x[1]]),
         ]
         self.names = {
-            "drop": 0,
-            ".": 1,
-            "dup": 2,
-            "+": 3,
-            "-": 4,
-            "*": 5,
-            "/": 6,
-            "swap": 7,
-            "over": 8,
-            "tuck": 9,
-            "rot": 10,
-            "-rot": 11,
+            "here": 0,
+            ",": 1,
+            "drop": 2,
+            ".": 3,
+            "dup": 4,
+            "+": 5,
+            "-": 6,
+            "*": 7,
+            "/": 8,
+            "swap": 9,
+            "over": 10,
+            "tuck": 11,
+            "rot": 12,
+            "-rot": 13,
         }
         self.silent = silent
         self.state = State.Execute
         self.val = None
+
+    def place(self, value):
+        self.memory.append(value)
+        self.here += 1  # measured in cells for now
+        return []
 
     def reset_state(self, data):
         if data:
@@ -151,8 +162,12 @@ class Forth:
                 self.fail("Data stack underflow: " + token)
         match word_type:
             case Word.Base:
-                used = self.data[-lin:]
-                rest = self.data[:-lin]
+                if lin == 0:
+                    used = []
+                    rest = self.data
+                else:
+                    used = self.data[-lin:]
+                    rest = self.data[:-lin]
                 new = word(used)
                 if check:
                     if (len(new) != lout):
@@ -183,6 +198,14 @@ class Forth:
                         self.state = State.Word
                     elif token == "]":
                         self.state = State.Compile
+                    elif token == "create":
+                        if len(tokens) == 0:
+                            self.fail("No target for create")
+                        name = tokens[0]
+                        tokens = tokens[1:]
+                        self.val = (name, 0, 1, [(Object.Literal, self.here)])
+                        self.compile_word()
+                        self.reset_state(data=False)
                     elif token in self.names.keys():
                         self.execute_valid_token(token)
                     else:
@@ -313,4 +336,27 @@ assert f.orphans() == []
 f.do(": c 6 ;")
 assert f.orphans() == list(range(start, start + 3))
 del start
+del f
+
+# create points to proper address
+f = Forth(True)
+f.do("here")
+assert f.S() == [0]
+f.do("drop create a1")
+f.do("here a1")
+assert f.S() == [0, 0]
+f.do("drop drop 0 ,  create a2 a1 a2 here")
+assert f.S() == [0, 1, 1]
+del f
+
+# create doesn't leave info around for next definition
+f = Forth(True)
+f.do("create a1 : tst ; tst")
+assert f.S() == []
+del f
+
+# can use here and , within a word
+f = Forth(True)
+f.do(": tst here 2 * , ; here tst tst")
+assert f.memory == [0, 2]
 del f
