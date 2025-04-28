@@ -142,7 +142,9 @@ class Forth:
 
     def reset_state(self, data):
         if data:
-            del self.data[:]  # intended for runtime errors (~= list.clear())
+            # intended for runtime errors (~= list.clear())
+            del self.data[:]
+            del self.ret[:]
         self.state = State.Execute
         self.val = None
         return
@@ -208,6 +210,8 @@ class Forth:
     def resolve_return_stack(self, token, check=False):
         while len(self.ret) > 0:
             current = self.ret.pop()
+            if current < 0 or current >= sum(self.lengths):
+                self.fail("Invalid return stack item: " + token)
 
             dictionary_index = 0
             offset = 0
@@ -563,4 +567,13 @@ del f
 f = Forth(True)
 f.do(": tst r> drop ; : tst2 1 tst 2 + ; tst2")
 assert f.S() == [1]
+del f
+
+# empties return stack on failure
+f = Forth(True)
+try:
+    f.do(": tst 1 drop drop -1 >r 2 ; : tst2 3 tst 4 ; tst2")
+    raise RuntimeError("didn't fail")
+except Exception:
+    assert len(f.ret) == 0
 del f

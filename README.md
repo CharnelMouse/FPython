@@ -18,6 +18,8 @@ I'll change this later to be a word within the Forth.
 
 Execution makes use of a return stack, and you can use `>r` and `r>` inside words (not on the top level yet).
 
+Both stacks are emptied on failure, as usual.
+
 Words are stored with their expected minimum input stack size, and relative output stack size.\
 This is also done for words defined by the user, and done by making use of the same information for the words it calls.\
 If I ever let users define new "basic" words (equivalent to Forth letting words be written in Assembly), then I'd need to think about how to handle it there.\
