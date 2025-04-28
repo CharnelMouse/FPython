@@ -213,37 +213,34 @@ class Forth:
         self.execute_valid_word(index, token, check=True)
 
     def do(self, str):
-        tokens = tokenise(str)
-        while len(tokens) > 0:
-            token = tokens.pop(0)
+        def pop_token():
+            nonlocal str
+            res = str.split(maxsplit=1)
+            if len(res) == 1:
+                str = []
+            else:
+                str = res[1]
+            return res[0]
+        str = str.strip()
+        while len(str) > 0:
+            token = pop_token()
             match self.state:
                 case State.Execute:
                     if token == "(":
-                        end = False
-                        index = -1
-                        pos = None
-                        while not end and index < len(tokens):
-                            index += 1
-                            nxt = tokens[index]
-                            try:
-                                pos = nxt.index(')')
-                                end = True
-                            except Exception:
-                                pass
-                        if not end:
+                        try:
+                            index = str.index(')')
+                        except Exception:
                             self.fail("Incomplete ( comment")
-                        tokens = tokens[index:]
-                        tokens[0] = tokens[0][pos+1:]
-                        if len(tokens[0]) == 0:
-                            tokens = tokens[1:]
+                        str = str[index + 1:]
                     elif token == ":":
                         self.state = State.Word
                     elif token == "]":
                         self.state = State.Compile
                     elif token == "create":
-                        if len(tokens) == 0:
+                        str = str.lstrip()
+                        if len(str) == 0:
                             self.fail("No target for create")
-                        name = tokens.pop(0)
+                        name = pop_token()
                         self.val = (name, 0, 1, [(Object.Literal, self.here)])
                         self.compile_word()
                         self.reset_state(data=False)
