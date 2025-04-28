@@ -16,6 +16,8 @@ All non-zero values will be counted as true in conditions, as usual.
 Printing the data stack is currently a dedicated Forth class method.\
 I'll change this later to be a word within the Forth.
 
+The "return stack" doesn't yet actually handle returns, but you can still use `>r` and `r>` to use it for storage.
+
 Words are stored with their expected minimum input stack size, and relative output stack size.\
 This is also done for words defined by the user, and done by making use of the same information for the words it calls.\
 If I ever let users define new "basic" words (equivalent to Forth letting words be written in Assembly), then I'd need to think about how to handle it there.\

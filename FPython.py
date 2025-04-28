@@ -45,6 +45,7 @@ class Forth:
     def __init__(self, silent=False):
         self.data = array('b', [])
         self.memory = array('b', [])
+        self.ret = []
         self.here = 0
         if silent:
             dot_word = (1, 0, Word.Base, lambda x: [])
@@ -56,8 +57,10 @@ class Forth:
             (1, 0, Word.Base, lambda x: []),
             dot_word,
             (1, 1, Word.Base, lambda x: self.fetch(x[0])),
+            (0, 1, Word.Base, lambda x: self.rFetch()),
             (1, 2, Word.Base, lambda x: x + x),
             (2, 0, Word.Base, lambda x: self.store(x[0], x[1])),
+            (1, 0, Word.Base, lambda x: self.rStore(x[0])),
             (2, 1, Word.Base, lambda x: [x[0] + x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
@@ -80,23 +83,25 @@ class Forth:
             "drop": 2,
             ".": 3,
             "@": 4,
-            "dup": 5,
-            "!": 6,
-            "+": 7,
-            "-": 8,
-            "*": 9,
-            "/": 10,
-            "=": 11,
-            "<": 12,
-            "<=": 13,
-            ">": 14,
-            ">=": 15,
-            "<>": 16,
-            "swap": 17,
-            "over": 18,
-            "tuck": 19,
-            "rot": 20,
-            "-rot": 21,
+            "r>": 5,
+            "dup": 6,
+            "!": 7,
+            ">r": 8,
+            "+": 9,
+            "-": 10,
+            "*": 11,
+            "/": 12,
+            "=": 13,
+            "<": 14,
+            "<=": 15,
+            ">": 16,
+            ">=": 17,
+            "<>": 18,
+            "swap": 19,
+            "over": 20,
+            "tuck": 21,
+            "rot": 22,
+            "-rot": 23,
         }
         self.silent = silent
         self.state = State.Execute
@@ -110,11 +115,18 @@ class Forth:
     def fetch(self, index):
         return [0] if index >= len(self.memory) else [self.memory[index]]
 
+    def rFetch(self):
+        return [self.ret.pop()]
+
     def store(self, value, index):
         if index >= len(self.memory):
             extra = index - len(self.memory) + 1
             self.memory += array('b', extra*[0])
         self.memory[index] = value
+        return []
+
+    def rStore(self, value):
+        self.ret.append(value)
         return []
 
     def reset_state(self, data):
@@ -291,6 +303,8 @@ class Forth:
                         self.val[2] += 1
         if self.state != State.Execute:
             self.fail("Incomplete program")
+        if len(self.ret) > 0:
+            self.fail("Return stack must be emptied")
         if not self.silent:
             print("ok")
         return
@@ -487,4 +501,10 @@ del f
 f = Forth(True)
 f.do(": ( same as plus ) tst + ;")
 assert f.names["tst"] == f.names["+"]
+del f
+
+# can use return stack (currently not used for returns)
+f = Forth(True)
+f.do("1 2 3 >r swap r>")
+assert f.S() == [2, 1, 3]
 del f
