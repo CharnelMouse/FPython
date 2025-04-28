@@ -220,7 +220,25 @@ class Forth:
             token = tokens.pop(0)
             match self.state:
                 case State.Execute:
-                    if token == ":":
+                    if token == "(":
+                        end = False
+                        index = -1
+                        pos = None
+                        while not end and index < len(tokens):
+                            index += 1
+                            nxt = tokens[index]
+                            try:
+                                pos = nxt.index(')')
+                                end = True
+                            except Exception:
+                                pass
+                        if not end:
+                            self.fail("Incomplete ( comment")
+                        tokens = tokens[index:]
+                        tokens[0] = tokens[0][pos+1:]
+                        if len(tokens[0]) == 0:
+                            tokens = tokens[1:]
+                    elif token == ":":
                         self.state = State.Word
                     elif token == "]":
                         self.state = State.Compile
@@ -276,7 +294,7 @@ class Forth:
                         self.val[3].append((Object.Literal, number))
                         self.val[2] += 1
         if self.state != State.Execute:
-            self.fail("incomplete program")
+            self.fail("Incomplete program")
         if not self.silent:
             print("ok")
         return
@@ -442,3 +460,25 @@ del res
 del f
 del checks
 del ops
+
+# takes ( ... ) comments
+f = Forth(True)
+f.do("1 ( 2 + ) 3 +")
+assert f.S() == [4]
+del f
+
+# stops on ) at any time
+f = Forth(True)
+f.do("1 ( 2 +) 3 +")
+assert f.S() == [4]
+del f
+
+# continues straight after )
+f = Forth(True)
+f.do("1 ( 2 +)3 +")
+assert f.S() == [4]
+del f
+f = Forth(True)
+f.do("1 3 ( 2 +)+")
+assert f.S() == [4]
+del f

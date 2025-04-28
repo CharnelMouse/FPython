@@ -44,3 +44,5 @@ The plan for this method is as part of allowing the user to ask the session to p
 `create` works a little differently to normal: it doesn't assign any memory.\
 The value of `here` is therefore unchanged, and consecutive `create` calls point to the same memory position.\
 As with words, the idea is to keep names/aliases and contents separate.
+
+Only the `( ... )` style of comments is supported, because I don't want to make around with device-dependents issues like how to end a line.
