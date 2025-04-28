@@ -36,3 +36,6 @@ The orphans method shows which definitions are neither called by other words, no
 The plan for this method is as part of allowing the user to ask the session to prune its dictionary.
 
 `here` and `,` work as normal. `create` currently only works at run time.
+`create` works a little differently to normal: it doesn't assign any memory.
+The value of `here` is therefore unchanged, and consecutive `create` calls point to the same memory position.
+As with words, the idea is to keep names/aliases and contents separate.

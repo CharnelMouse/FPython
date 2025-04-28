@@ -349,6 +349,12 @@ f.do("drop drop 0 ,  create a2 a1 a2 here")
 assert f.S() == [0, 1, 1]
 del f
 
+# create doesn't move here, so consecutive creates point to same address
+f = Forth(True)
+f.do("create a1 create a2 a1 a2")
+assert f.S() == [0, 0]
+del f
+
 # create doesn't leave info around for next definition
 f = Forth(True)
 f.do("create a1 : tst ; tst")
