@@ -357,6 +357,6 @@ del f
 
 # can use here and , within a word
 f = Forth(True)
-f.do(": tst here 2 * , ; here tst tst")
+f.do(": tst here 2 * , ; tst tst")
 assert f.memory == [0, 2]
 del f
