@@ -189,7 +189,7 @@ class Forth:
             self.fail("Undefined word: " + token)
         return number
 
-    def resolve_return_stack(self, token, check=False):
+    def resolve_return_stack(self, token):
         while len(self.ret) > 0:
             current = self.ret.pop()
             if current < 0 or current >= sum(self.lengths):
@@ -212,9 +212,6 @@ class Forth:
             assert 0 <= offset < self.lengths[dictionary_index]
 
             lin, lout, word_type, word = self.dictionary[dictionary_index]
-            if check and offset == 0:  # check stack size at beginning of word
-                if (len(self.data) < lin):
-                    self.fail("Data stack underflow: " + token)
             match word_type:
                 case Word.Base:
                     # execute the word, leave nothing back on the return stack
@@ -226,9 +223,6 @@ class Forth:
                         used = self.data[-lin:]
                         rest = self.data[:-lin]
                     new = word(used)
-                    if check:
-                        if (len(new) != lout):
-                            self.fail("Word output size error: " + token)
                     self.data = rest + array('b', new)
                 case Word.Compound:
                     # add all initial literals
@@ -248,13 +242,19 @@ class Forth:
                     # not Return -> not last element, so can push next one
                     self.ret.append(s + offset + 1)
                     self.ret.append(nxt)
-                    check = False
 
     def execute_valid_token(self, token):
         index = self.names[token]
+        lin = len(self.data)
+        min_lin, add_lout, _, _ = self.dictionary[index]
+        if lin < min_lin:
+            self.fail("Data stack underflow: " + token)
         word_offset = sum(self.lengths[:index])
         self.ret.append(word_offset)
-        self.resolve_return_stack(token, check=True)
+        self.resolve_return_stack(token)
+        lout = len(self.data)
+        if lout != lin + add_lout - min_lin:
+            self.fail("Word output size error: " + token)
 
     def do(self, str):
         def pop_token():
