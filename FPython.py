@@ -2,24 +2,6 @@ from array import array
 from enum import Enum
 
 
-def tokenise(str):
-    return str.split()
-
-
-# can handle an empty input
-assert tokenise("") == []
-
-# can separate on spaces
-tokens = tokenise("1 2 +")
-assert tokens == ['1', '2', '+']
-del tokens
-
-# can separate on other common whitespace
-tokens = tokenise("1  \t2\n \r+")
-assert tokens == ['1', '2', '+']
-del tokens
-
-
 def fp(x):
     print(x[0], end=' ')
     return []
