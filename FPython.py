@@ -46,7 +46,7 @@ class Forth:
     def __init__(self, silent=False):
         self.data = array('b', [])
         self.memory = array('b', [])
-        self.ret = []
+        self.ret = array('b', [])
         self.here = 0
         if silent:
             dot_word = (1, 0, Word.Base, lambda x: [])
