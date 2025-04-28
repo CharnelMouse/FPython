@@ -224,15 +224,16 @@ class Forth:
         str = str.strip()
         while len(str) > 0:
             token = pop_token()
+            if token == "(":
+                try:
+                    index = str.index(')')
+                except Exception:
+                    self.fail("Incomplete ( comment")
+                str = str[index + 1:]
+                continue
             match self.state:
                 case State.Execute:
-                    if token == "(":
-                        try:
-                            index = str.index(')')
-                        except Exception:
-                            self.fail("Incomplete ( comment")
-                        str = str[index + 1:]
-                    elif token == ":":
+                    if token == ":":
                         self.state = State.Word
                     elif token == "]":
                         self.state = State.Compile
@@ -476,4 +477,14 @@ del f
 f = Forth(True)
 f.do("1 3 ( 2 +)+")
 assert f.S() == [4]
+del f
+
+# takes comments in definitions
+f = Forth(True)
+f.do(": tst ( n n -- n ) + ;")
+assert f.names["tst"] == f.names["+"]
+del f
+f = Forth(True)
+f.do(": ( same as plus ) tst + ;")
+assert f.names["tst"] == f.names["+"]
 del f
