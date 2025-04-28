@@ -1,4 +1,5 @@
 import re
+from array import array
 from enum import Enum
 
 
@@ -44,8 +45,8 @@ class Object(Enum):
 
 class Forth:
     def __init__(self, silent=False):
-        self.data = []
-        self.memory = []
+        self.data = array('b', [])
+        self.memory = array('b', [])
         self.here = 0
         if silent:
             dot_word = (1, 0, Word.Base, lambda x: [])
@@ -63,6 +64,12 @@ class Forth:
             (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
             (2, 1, Word.Base, lambda x: [x[0] // x[1]]),
+            (2, 1, Word.Base, lambda x: [int(x[0] == x[1])]),
+            (2, 1, Word.Base, lambda x: [int(x[0] < x[1])]),
+            (2, 1, Word.Base, lambda x: [int(x[0] <= x[1])]),
+            (2, 1, Word.Base, lambda x: [int(x[0] > x[1])]),
+            (2, 1, Word.Base, lambda x: [int(x[0] >= x[1])]),
+            (2, 1, Word.Base, lambda x: [int(x[0] != x[1])]),
             (2, 2, Word.Base, lambda x: list(reversed(x))),
             (2, 3, Word.Base, lambda x: [x[0], x[1], x[0]]),
             (2, 3, Word.Base, lambda x: [x[1], x[0], x[1]]),
@@ -81,11 +88,17 @@ class Forth:
             "-": 8,
             "*": 9,
             "/": 10,
-            "swap": 11,
-            "over": 12,
-            "tuck": 13,
-            "rot": 14,
-            "-rot": 15,
+            "=": 11,
+            "<": 12,
+            "<=": 13,
+            ">": 14,
+            ">=": 15,
+            "<>": 16,
+            "swap": 17,
+            "over": 18,
+            "tuck": 19,
+            "rot": 20,
+            "-rot": 21,
         }
         self.silent = silent
         self.state = State.Execute
@@ -102,13 +115,13 @@ class Forth:
     def store(self, value, index):
         if index >= len(self.memory):
             extra = index - len(self.memory) + 1
-            self.memory += extra*[0]
+            self.memory += array('b', extra*[0])
         self.memory[index] = value
         return []
 
     def reset_state(self, data):
         if data:
-            self.data.clear()  # intended for runtime errors
+            del self.data[:]  # intended for runtime errors (~= list.clear())
         self.state = State.Execute
         self.val = None
         return
@@ -186,7 +199,7 @@ class Forth:
                 if check:
                     if (len(new) != lout):
                         self.fail("Word output size error: " + token)
-                self.data = rest + new
+                self.data = rest + array('b', new)
             case Word.Compound:
                 for (object_type, object) in word:
                     match object_type:
@@ -269,7 +282,7 @@ class Forth:
         return
 
     def S(self):
-        return self.data.copy()
+        return list(self.data).copy()
 
 
 f = Forth(True)
@@ -376,7 +389,7 @@ del f
 # can use here and , within a word
 f = Forth(True)
 f.do(": tst here 2 * , ; tst tst")
-assert f.memory == [0, 2]
+assert list(f.memory) == [0, 2]
 del f
 
 # can fetch
@@ -403,3 +416,29 @@ f = Forth(True)
 f.do("10 5 ! 0 @ 1 @ 2 @ 3 @ 4 @ 5 @ here")
 assert f.S() == [0, 0, 0, 0, 0, 10, 0]
 del f
+
+# does inequalities
+ops = ["=", "<", "<=", ">", ">=", "<>"]
+ops = [" " + x + " ," for x in ops]
+ops[:-1] = [" over over" + x for x in ops[:-1]]
+checks = "".join(ops)
+f = Forth(True)
+f.do("0 0" + checks)
+res = [x != 0 for x in list(f.memory)]
+assert res == [True, False, True, False, True, False]
+del res
+del f
+f = Forth(True)
+f.do("0 1" + checks)
+res = [x != 0 for x in list(f.memory)]
+assert res == [False, True, True, False, False, True]
+del res
+del f
+f = Forth(True)
+f.do("1 0" + checks)
+res = [x != 0 for x in list(f.memory)]
+assert res == [False, False, False, True, True, True]
+del res
+del f
+del checks
+del ops
