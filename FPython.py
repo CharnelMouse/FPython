@@ -82,6 +82,7 @@ class Forth:
         base_words = {
             "bd": bw(0, 0, lambda x: self.begin_definition()),
             "ec": bw(0, 0, lambda x: self.end_compile()),
+            "postpone": bw(0, 0, lambda x: self.postpone(), im=True),
             "cl": bw(1, 0, lambda x: self.compile_literal(x[0])),
             "word": bw(0, 0, lambda x: self.read_word()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
@@ -258,6 +259,14 @@ class Forth:
             for index in range(len(self.dictionary))
             if index not in old
         ]
+
+    def postpone(self):
+        self.read_word()
+        name = self.pad
+        index = self.names[name]
+        callee = self.dictionary[index]
+        self.val.call(index, callee)
+        return []
 
     def compile_literal(self, value):
         self.val.lit(value)
@@ -702,5 +711,11 @@ del f
 # can compile immediate words
 f = Forth(True)
 f.do(": tst 1 + ;im 3 : tst2 tst literal ; tst2")
+assert f.S() == [4]
+del f
+
+# can use postpose to compile immediate words
+f = Forth(True)
+f.do(": tst 1 + ;im : tst2 3 postpone tst ; tst2")
 assert f.S() == [4]
 del f

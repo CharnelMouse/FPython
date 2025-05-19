@@ -25,7 +25,8 @@ This is also done for words defined by the user, and done by making use of the s
 If I ever let users define new "basic" words (equivalent to Forth letting words be written in Assembly), then I'd need to think about how to handle it there.\
 When words are executed, the input stack and output are checked against this information.\
 For compound words, called words are not themselves checked, because their stack conditions are already satisfied when calculating the conditions for the calling word.\
-The interpretor handles immediate words, which can be defined using `;im` instead of `;`.
+The interpreter handles immediate words, which can be defined using `;im` instead of `;`.\
+It can also handle `postpone`, to compile calls to immediate words.
 
 The name of a word is kept separate from the definition/body.\
 This means that words with the same definition all point to the same definition, so the names are really just current aliases.\
