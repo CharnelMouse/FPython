@@ -2,11 +2,6 @@ from array import array
 from enum import Enum
 
 
-def fp(x):
-    print(x[0], end=' ')
-    return []
-
-
 class Word(Enum):
     Base = 1
     Compound = 2
@@ -26,19 +21,16 @@ class Object(Enum):
 
 class Forth:
     def __init__(self, silent=False):
-        self.data = array('b', [])
-        self.memory = array('b', [])
-        self.ret = array('b', [])
+        self.data = array('l', [])
+        self.memory = array('l', [])
+        self.ret = array('l', [])
+        self.silent = silent
         self.here = 0
-        if silent:
-            dot_word = (1, 0, Word.Base, lambda x: [])
-        else:
-            dot_word = (1, 0, Word.Base, fp)
         base_words = {
             "here": (0, 1, Word.Base, lambda x: [self.here]),
             ",": (1, 0, Word.Base, lambda x: self.place(x[0])),
             "drop": (1, 0, Word.Base, lambda x: []),
-            ".": dot_word,
+            ".": (1, 0, Word.Base, lambda x: self.fp(x)),
             "@": (1, 1, Word.Base, lambda x: self.fetch(x[0])),
             "r>": (0, 1, Word.Base, lambda x: self.rFetch()),
             "dup": (1, 2, Word.Base, lambda x: x + x),
@@ -62,7 +54,7 @@ class Forth:
         }
         self.dictionary = list(base_words.values())
         self.names = {k: list(base_words).index(k) for k in list(base_words)}
-        self.lengths = array('b', [
+        self.lengths = array('l', [
             1 if x[2] == Word.Base
             else len(x[3])
             for x in self.dictionary
@@ -70,6 +62,37 @@ class Forth:
         self.silent = silent
         self.state = State.Execute
         self.val = None
+
+        # base must be added without using .do(), since without it
+        # input-output base isn't defined
+        self.dictionary += [(
+            0,
+            1,
+            Word.Compound,
+            [(Object.Literal, self.here)]
+        )]
+        self.place(10)
+        self.names["base"] = len(self.dictionary) - 1
+        self.lengths.append(1)
+
+    def fp(self, x):
+        if self.silent:
+            return []
+        val = x[0]
+        base = self.memory[0]
+        chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[:base]
+        if val == 0:
+            print(val, end=' ')
+            return []
+        if val < 0:
+            print("-", end='')
+            val = val * -1
+        val_str = ""
+        while val > 0:
+            cur, val = val % base, val // base
+            val_str = chars[cur] + val_str
+        print(val_str, end=' ')
+        return []
 
     def place(self, value):
         self.memory.append(value)
@@ -88,7 +111,7 @@ class Forth:
     def store(self, value, index):
         if index >= len(self.memory):
             extra = index - len(self.memory) + 1
-            self.memory += array('b', extra*[0])
+            self.memory += array('l', extra*[0])
         self.memory[index] = value
         return []
 
@@ -160,7 +183,7 @@ class Forth:
 
     def number_or_fail(self, token):
         try:
-            number = int(token)
+            number = int(token, base=self.memory[0])
         except Exception:
             self.fail("Undefined word: " + token)
         return number
@@ -199,7 +222,7 @@ class Forth:
                         used = self.data[-lin:]
                         rest = self.data[:-lin]
                     new = word(used)
-                    self.data = rest + array('b', new)
+                    self.data = rest + array('l', new)
                 case Word.Compound:
                     # add all initial literals
                     while offset < len(word):
@@ -408,19 +431,22 @@ del f
 
 # create points to proper address
 f = Forth(True)
+start = f.here
 f.do("here")
-assert f.S() == [0]
+assert f.S() == [start]
 f.do("drop create a1")
 f.do("here a1")
-assert f.S() == [0, 0]
+assert f.S() == [start, start]
 f.do("drop drop 0 ,  create a2 a1 a2 here")
-assert f.S() == [0, 1, 1]
+assert f.S() == [start, start + 1, start + 1]
+del start
 del f
 
 # create doesn't move here, so consecutive creates point to same address
 f = Forth(True)
+start = f.here
 f.do("create a1 create a2 a1 a2")
-assert f.S() == [0, 0]
+assert f.S() == [start, start]
 del f
 
 # create doesn't leave info around for next definition
@@ -431,33 +457,37 @@ del f
 
 # can use here and , within a word
 f = Forth(True)
+start = f.here
 f.do(": tst here 2 * , ; tst tst")
-assert list(f.memory) == [0, 2]
+assert list(f.memory[start:]) == [2, 4]
+del start
 del f
 
 # can fetch
 f = Forth(True)
-f.do("10 , 0 @")
-assert f.S() == [10]
+f.do("here 12 , @")
+assert f.S() == [12]
 del f
 
 # can "fetch" from unassigned memory, returning 0
 f = Forth(True)
-f.do("0 @")
+f.do("10 @")
 assert f.S() == [0]
 del f
 
 # can store within memory already allocated
 f = Forth(True)
-f.do("0 , 10 0 ! 0 @")
-assert f.S() == [10]
+f.do("here 0 , 12 over ! @")
+assert f.S() == [12]
 del f
 
 # can store within memory not previously allocated, placing zeroes in gap,
 # doesn't move here
 f = Forth(True)
+start = f.here
 f.do("10 5 ! 0 @ 1 @ 2 @ 3 @ 4 @ 5 @ here")
-assert f.S() == [0, 0, 0, 0, 0, 10, 0]
+assert f.S()[start:] == [0, 0, 0, 0, 10, 1]
+del start
 del f
 
 # does inequalities
@@ -466,22 +496,28 @@ ops = [" " + x + " ," for x in ops]
 ops[:-1] = [" over over" + x for x in ops[:-1]]
 checks = "".join(ops)
 f = Forth(True)
+memstart = f.here
 f.do("0 0" + checks)
-res = [x != 0 for x in list(f.memory)]
+res = [x != 0 for x in list(f.memory[memstart:])]
 assert res == [True, False, True, False, True, False]
 del res
+del memstart
 del f
 f = Forth(True)
+memstart = f.here
 f.do("0 1" + checks)
-res = [x != 0 for x in list(f.memory)]
+res = [x != 0 for x in list(f.memory[memstart:])]
 assert res == [False, True, True, False, False, True]
 del res
+del memstart
 del f
 f = Forth(True)
+memstart = f.here
 f.do("1 0" + checks)
-res = [x != 0 for x in list(f.memory)]
+res = [x != 0 for x in list(f.memory[memstart:])]
 assert res == [False, False, False, True, True, True]
 del res
+del memstart
 del f
 del checks
 del ops
@@ -552,4 +588,22 @@ try:
     raise RuntimeError("didn't fail")
 except Exception:
     assert len(f.ret) == 0
+del f
+
+# "base" fetches the current integer base
+f = Forth(True)
+f.do("base @")
+assert f.S() == [10]
+f.do("drop 16 base ! base @")
+assert f.S() == [16]
+del f
+
+# can work in non-decimal bases
+f = Forth(True)
+f.do("16 base ! A")
+assert f.S() == [10]
+del f
+f = Forth(True)
+f.do("36 base ! LBA")
+assert f.S() == [27622]
 del f
