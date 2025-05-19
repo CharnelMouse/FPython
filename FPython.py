@@ -30,6 +30,36 @@ class Definition:
         self.lout = 0
         self.body = []
 
+    def call(self, index, callee):
+        new_lin, new_lout, _, _, _ = callee
+        self.body.append((Object.Word, index))
+        old_lout = self.lout
+        diff = new_lin - old_lout
+        self.lout = new_lout
+        if diff > 0:
+            self.lin += diff
+        if diff < 0:
+            self.lout -= diff
+
+    def lit(self, value):
+        self.body.append((Object.Literal, value))
+        self.lout += 1
+
+    def ret(self):
+        self.body.append((Object.Return, 0))
+
+    def end(self):
+        return (
+            self.name,
+            (
+                self.lin,
+                self.lout,
+                Word.Compound,
+                Speed.Normal,
+                self.body
+            )
+        )
+
 
 class Forth:
     def __init__(self, silent=False):
@@ -110,11 +140,9 @@ class Forth:
         # : must be compiled more implicitly, then it can be used
         # to define the rest
         self.val = Definition(":")
-        self.val.body = [
-            (Object.Word, self.names["word"]),
-            (Object.Word, self.names["bd"]),
-            (Object.Word, self.names["]"])
-        ]
+        self.compile_call("word")
+        self.compile_call("bd")
+        self.compile_call("]")
         self.end_definition()
 
         self.silent = silent
@@ -161,8 +189,7 @@ class Forth:
         self.read_word()
         name = self.pad
         self.val = Definition(name)
-        self.val.lout = 1
-        self.val.body.append((Object.Literal, self.here))
+        self.compile_literal(self.here)
         self.end_definition()
         self.reset_state(data=False)
         return []
@@ -238,20 +265,26 @@ class Forth:
         ]
 
     def compile_literal(self, value):
-        self.val.body.append((Object.Literal, value))
-        self.val.lout += 1
+        self.val.lit(value)
         return []
 
+    def compile_call(self, name):
+        index = self.names[name]
+        callee = self.dictionary[index]
+        _, _, _, speed, _ = callee
+        match speed:
+            case Speed.Normal:
+                self.val.call(index, callee)
+            case Speed.Immediate:
+                self.execute_valid_token(name)
+        return []
+
+    def compile_ret(self):
+        self.val.ret()
+
     def end_definition(self):
-        self.val.body.append((Object.Return, 0))
-        name = self.val.name
-        entry = (
-            self.val.lin,
-            self.val.lout,
-            Word.Compound,
-            Speed.Normal,
-            self.val.body
-        )
+        self.compile_ret()
+        name, entry = self.val.end()
         try:
             index = self.dictionary.index(entry)
             self.names[name] = index
@@ -261,16 +294,18 @@ class Forth:
             self.lengths.append(len(self.val.body))
 
     def end_compile(self):
+        name = self.val.name
         if not self.silent:
-            if self.val.name in self.names.keys():
-                print(self.val.name + " is redefined")
-        if (len(self.val.body) == 1):
-            object_type, object = self.val.body[0]
+            if name in self.names.keys():
+                print(name + " is redefined")
+        body = self.val.body
+        if (len(body) == 1):
+            object_type, object = body[0]
             match object_type:
                 case Object.Literal:
                     self.end_definition()
                 case Object.Word:
-                    self.names[self.val.name] = object
+                    self.names[name] = object
         else:
             self.end_definition()
         self.reset_state(data=False)
@@ -390,24 +425,10 @@ class Forth:
                         self.data.append(number)
                 case State.Compile:
                     if token in self.names.keys():
-                        index = self.names[token]
-                        new_lin, new_lout, _, speed, _ = self.dictionary[index]
-                        match speed:
-                            case Speed.Normal:
-                                self.val.body.append((Object.Word, index))
-                                old_lout = self.val.lout
-                                diff = new_lin - old_lout
-                                self.val.lout = new_lout
-                                if diff > 0:
-                                    self.val.lin += diff
-                                if diff < 0:
-                                    self.val.lout -= diff
-                            case Speed.Immediate:
-                                self.execute_valid_token(token)
+                        self.compile_call(token)
                     else:
                         number = self.number_or_fail(token)
-                        self.val.body.append((Object.Literal, number))
-                        self.val.lout += 1
+                        self.compile_literal(number)
         if self.state != State.Execute:
             self.fail("Incomplete program")
         if len(self.ret) > 0:
