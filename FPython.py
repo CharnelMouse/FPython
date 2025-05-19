@@ -14,8 +14,7 @@ class Speed(Enum):
 
 class State(Enum):
     Execute = 0
-    Word = 1
-    Compile = 2
+    Compile = 1
 
 
 class Object(Enum):
@@ -31,7 +30,7 @@ class Forth:
         self.ret = array('l', [])
         self.input_buffer = ""
         self.pad = ""
-        self.silent = silent
+        self.silent = True
         self.here = 0
 
         def bw(instack, outstack, fun, im=False):
@@ -43,9 +42,9 @@ class Forth:
                 fun
             )
         base_words = {
+            "bd": bw(0, 0, lambda x: self.begin_definition()),
             "word": bw(0, 0, lambda x: self.read_word()),
             "create": bw(0, 0, lambda x: self.create()),
-            ":": bw(0, 0, lambda x: self.word_mode()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
             "]": bw(0, 0, lambda x: self.compile_mode()),
@@ -99,6 +98,24 @@ class Forth:
         self.names["base"] = len(self.dictionary) - 1
         self.lengths.append(1)
 
+        # initial compound words
+        # : must be compiled more implicitly, then it can be used
+        # to define the rest
+        self.val = [
+            ":",
+            0,
+            0,
+            [
+                (Object.Word, self.names["word"]),
+                (Object.Word, self.names["bd"]),
+                (Object.Word, self.names["]"]),
+                (Object.Return, 0)
+            ]
+        ]
+        self.compile_word()
+
+        self.silent = silent
+
     def fp(self, x):
         if self.silent:
             return []
@@ -129,8 +146,8 @@ class Forth:
         self.state = State.Execute
         return []
 
-    def word_mode(self):
-        self.state = State.Word
+    def begin_definition(self):
+        self.val = [self.pad, 0, 0, []]
         return []
 
     def compile_mode(self):
@@ -366,9 +383,6 @@ class Forth:
                     else:
                         number = self.number_or_fail(token)
                         self.data.append(number)
-                case State.Word:
-                    self.state = State.Compile
-                    self.val = [token, 0, 0, []]
                 case State.Compile:
                     if token in self.names.keys():
                         index = self.names[token]
@@ -599,9 +613,15 @@ f = Forth(True)
 f.do(": tst ( n n -- n ) + ;")
 assert f.names["tst"] == f.names["+"]
 del f
+
+# cannot take comment before defined word name
 f = Forth(True)
-f.do(": ( same as plus ) tst + ;")
-assert f.names["tst"] == f.names["+"]
+try:
+    f.do(": ( same as plus ) tst + ;")
+except Exception:
+    pass
+else:
+    raise AssertionError("( before word name in definition does not fail")
 del f
 
 # takes \ comments
