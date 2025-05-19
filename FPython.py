@@ -3,20 +3,20 @@ from enum import Enum
 
 
 class Word(Enum):
-    Base = 1
-    Compound = 2
+    Base = 0
+    Compound = 1
 
 
 class State(Enum):
-    Execute = 1
-    Word = 2
-    Compile = 3
+    Execute = 0
+    Word = 1
+    Compile = 2
 
 
 class Object(Enum):
-    Literal = 1
-    Word = 2
-    Return = 3
+    Literal = 0
+    Word = 1
+    Return = 2
 
 
 class Forth:
