@@ -81,9 +81,7 @@ class Forth:
             )
         base_words = {
             "bd": bw(0, 0, lambda x: self.begin_definition()),
-            "ec": bw(0, 0, lambda x: self.end_compile()),
             "postpone": bw(0, 0, lambda x: self.postpone(), im=True),
-            "cl": bw(1, 0, lambda x: self.compile_literal(x[0])),
             "word": bw(0, 0, lambda x: self.read_word()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
             ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
@@ -148,7 +146,9 @@ class Forth:
         self.end_definition()
 
         # initial compound words
-        self.do(": create word bd here cl ec ;")
+        self.do(
+            ": create postpone : postpone here postpone literal postpone ; ;"
+        )
 
         self.silent = silent
 
