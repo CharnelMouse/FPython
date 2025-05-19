@@ -23,6 +23,14 @@ class Object(Enum):
     Return = 2
 
 
+class Definition:
+    def __init__(self, name):
+        self.name = name
+        self.lin = 0
+        self.lout = 0
+        self.body = []
+
+
 class Forth:
     def __init__(self, silent=False):
         self.data = array('l', [])
@@ -101,16 +109,11 @@ class Forth:
         # initial compound words
         # : must be compiled more implicitly, then it can be used
         # to define the rest
-        self.val = [
-            ":",
-            0,
-            0,
-            [
-                (Object.Word, self.names["word"]),
-                (Object.Word, self.names["bd"]),
-                (Object.Word, self.names["]"]),
-                (Object.Return, 0)
-            ]
+        self.val = Definition(":")
+        self.val.body = [
+            (Object.Word, self.names["word"]),
+            (Object.Word, self.names["bd"]),
+            (Object.Word, self.names["]"])
         ]
         self.compile_word()
 
@@ -147,7 +150,7 @@ class Forth:
         return []
 
     def begin_definition(self):
-        self.val = [self.pad, 0, 0, []]
+        self.val = Definition(self.pad)
         return []
 
     def compile_mode(self):
@@ -157,7 +160,9 @@ class Forth:
     def create(self):
         self.read_word()
         name = self.pad
-        self.val = (name, 0, 1, [(Object.Literal, self.here)])
+        self.val = Definition(name)
+        self.val.lout = 1
+        self.val.body.append((Object.Literal, self.here))
         self.compile_word()
         self.reset_state(data=False)
         return []
@@ -233,19 +238,19 @@ class Forth:
         ]
 
     def compile_literal(self, value):
-        self.val[3].append((Object.Literal, value))
-        self.val[2] += 1
+        self.val.body.append((Object.Literal, value))
+        self.val.lout += 1
         return []
 
     def compile_word(self):
-        self.val[3].append((Object.Return, 0))
-        name = self.val[0]
+        self.val.body.append((Object.Return, 0))
+        name = self.val.name
         entry = (
-            self.val[1],
-            self.val[2],
+            self.val.lin,
+            self.val.lout,
             Word.Compound,
             Speed.Normal,
-            self.val[3]
+            self.val.body
         )
         try:
             index = self.dictionary.index(entry)
@@ -253,19 +258,19 @@ class Forth:
         except Exception:
             self.names[name] = len(self.dictionary)
             self.dictionary.append(entry)
-            self.lengths.append(len(self.val[3]))
+            self.lengths.append(len(self.val.body))
 
     def end_compile(self):
         if not self.silent:
-            if self.val[0] in self.names.keys():
-                print(self.val[0] + " is redefined")
-        if (len(self.val[3]) == 1):
-            object_type, object = self.val[3][0]
+            if self.val.name in self.names.keys():
+                print(self.val.name + " is redefined")
+        if (len(self.val.body) == 1):
+            object_type, object = self.val.body[0]
             match object_type:
                 case Object.Literal:
                     self.compile_word()
                 case Object.Word:
-                    self.names[self.val[0]] = object
+                    self.names[self.val.name] = object
         else:
             self.compile_word()
         self.reset_state(data=False)
@@ -389,20 +394,20 @@ class Forth:
                         new_lin, new_lout, _, speed, _ = self.dictionary[index]
                         match speed:
                             case Speed.Normal:
-                                self.val[3].append((Object.Word, index))
-                                old_lout = self.val[2]
+                                self.val.body.append((Object.Word, index))
+                                old_lout = self.val.lout
                                 diff = new_lin - old_lout
-                                self.val[2] = new_lout
+                                self.val.lout = new_lout
                                 if diff > 0:
-                                    self.val[1] += diff
+                                    self.val.lin += diff
                                 if diff < 0:
-                                    self.val[2] -= diff
+                                    self.val.lout -= diff
                             case Speed.Immediate:
                                 self.execute_valid_token(token)
                     else:
                         number = self.number_or_fail(token)
-                        self.val[3].append((Object.Literal, number))
-                        self.val[2] += 1
+                        self.val.body.append((Object.Literal, number))
+                        self.val.lout += 1
         if self.state != State.Execute:
             self.fail("Incomplete program")
         if len(self.ret) > 0:
