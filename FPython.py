@@ -33,36 +33,45 @@ class Forth:
         self.silent = silent
         self.here = 0
 
-        def base_word(instack, outstack, fun):
-            return (instack, outstack, Word.Base, Speed.Normal, fun)
+        def bw(instack, outstack, fun, im=False):
+            return (
+                instack,
+                outstack,
+                Word.Base,
+                Speed.Immediate if im else Speed.Normal,
+                fun
+            )
         base_words = {
-            "create": base_word(0, 0, lambda x: self.create()),
-            ":": base_word(0, 0, lambda x: self.word_mode()),
-            "]": base_word(0, 0, lambda x: self.compile_mode()),
-            "here": base_word(0, 1, lambda x: [self.here]),
-            ",": base_word(1, 0, lambda x: self.place(x[0])),
-            "drop": base_word(1, 0, lambda x: []),
-            ".": base_word(1, 0, lambda x: self.fp(x)),
-            "@": base_word(1, 1, lambda x: self.fetch(x[0])),
-            "r>": base_word(0, 1, lambda x: self.rFetch()),
-            "dup": base_word(1, 2, lambda x: x + x),
-            "!": base_word(2, 0, lambda x: self.store(x[0], x[1])),
-            ">r": base_word(1, 0, lambda x: self.rStore(x[0])),
-            "+": base_word(2, 1, lambda x: [x[0] + x[1]]),
-            "-": base_word(2, 1, lambda x: [x[0] - x[1]]),
-            "*": base_word(2, 1, lambda x: [x[0] * x[1]]),
-            "/": base_word(2, 1, lambda x: [x[0] // x[1]]),
-            "=": base_word(2, 1, lambda x: [int(x[0] == x[1])]),
-            "<": base_word(2, 1, lambda x: [int(x[0] < x[1])]),
-            "<=": base_word(2, 1, lambda x: [int(x[0] <= x[1])]),
-            ">": base_word(2, 1, lambda x: [int(x[0] > x[1])]),
-            ">=": base_word(2, 1, lambda x: [int(x[0] >= x[1])]),
-            "<>": base_word(2, 1, lambda x: [int(x[0] != x[1])]),
-            "swap": base_word(2, 2, lambda x: list(reversed(x))),
-            "over": base_word(2, 3, lambda x: [x[0], x[1], x[0]]),
-            "tuck": base_word(2, 3, lambda x: [x[1], x[0], x[1]]),
-            "rot": base_word(3, 3, lambda x: [x[1], x[2], x[0]]),
-            "-rot": base_word(3, 3, lambda x: [x[2], x[0], x[1]]),
+            "create": bw(0, 0, lambda x: self.create()),
+            ":": bw(0, 0, lambda x: self.word_mode()),
+            ";": bw(0, 0, lambda x: self.end_compile(), im=True),
+            "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
+            "]": bw(0, 0, lambda x: self.compile_mode()),
+            "here": bw(0, 1, lambda x: [self.here]),
+            ",": bw(1, 0, lambda x: self.place(x[0])),
+            "literal": bw(1, 0, lambda x: self.compile_literal(x[0]), im=True),
+            "drop": bw(1, 0, lambda x: []),
+            ".": bw(1, 0, lambda x: self.fp(x)),
+            "@": bw(1, 1, lambda x: self.fetch(x[0])),
+            "r>": bw(0, 1, lambda x: self.rFetch()),
+            "dup": bw(1, 2, lambda x: x + x),
+            "!": bw(2, 0, lambda x: self.store(x[0], x[1])),
+            ">r": bw(1, 0, lambda x: self.rStore(x[0])),
+            "+": bw(2, 1, lambda x: [x[0] + x[1]]),
+            "-": bw(2, 1, lambda x: [x[0] - x[1]]),
+            "*": bw(2, 1, lambda x: [x[0] * x[1]]),
+            "/": bw(2, 1, lambda x: [x[0] // x[1]]),
+            "=": bw(2, 1, lambda x: [int(x[0] == x[1])]),
+            "<": bw(2, 1, lambda x: [int(x[0] < x[1])]),
+            "<=": bw(2, 1, lambda x: [int(x[0] <= x[1])]),
+            ">": bw(2, 1, lambda x: [int(x[0] > x[1])]),
+            ">=": bw(2, 1, lambda x: [int(x[0] >= x[1])]),
+            "<>": bw(2, 1, lambda x: [int(x[0] != x[1])]),
+            "swap": bw(2, 2, lambda x: list(reversed(x))),
+            "over": bw(2, 3, lambda x: [x[0], x[1], x[0]]),
+            "tuck": bw(2, 3, lambda x: [x[1], x[0], x[1]]),
+            "rot": bw(3, 3, lambda x: [x[1], x[2], x[0]]),
+            "-rot": bw(3, 3, lambda x: [x[2], x[0], x[1]]),
         }
         self.dictionary = list(base_words.values())
         self.names = {k: list(base_words).index(k) for k in list(base_words)}
@@ -105,6 +114,10 @@ class Forth:
             cur, val = val % base, val // base
             val_str = chars[cur] + val_str
         print(val_str, end=' ')
+        return []
+
+    def execute_mode(self):
+        self.state = State.Execute
         return []
 
     def word_mode(self):
@@ -195,6 +208,11 @@ class Forth:
             if index not in old
         ]
 
+    def compile_literal(self, value):
+        self.val[3].append((Object.Literal, value))
+        self.val[2] += 1
+        return []
+
     def compile_word(self):
         self.val[3].append((Object.Return, 0))
         name = self.val[0]
@@ -212,6 +230,22 @@ class Forth:
             self.names[name] = len(self.dictionary)
             self.dictionary.append(entry)
             self.lengths.append(len(self.val[3]))
+
+    def end_compile(self):
+        if not self.silent:
+            if self.val[0] in self.names.keys():
+                print(self.val[0] + " is redefined")
+        if (len(self.val[3]) == 1):
+            object_type, object = self.val[3][0]
+            match object_type:
+                case Object.Literal:
+                    self.compile_word()
+                case Object.Word:
+                    self.names[self.val[0]] = object
+        else:
+            self.compile_word()
+        self.reset_state(data=False)
+        return []
 
     def number_or_fail(self, token):
         try:
@@ -325,37 +359,21 @@ class Forth:
                     self.state = State.Compile
                     self.val = [token, 0, 0, []]
                 case State.Compile:
-                    if token == ";":
-                        if not self.silent:
-                            if self.val[0] in self.names.keys():
-                                print(self.val[0] + " is redefined")
-                        if (len(self.val[3]) == 1):
-                            object_type, object = self.val[3][0]
-                            match object_type:
-                                case Object.Literal:
-                                    self.compile_word()
-                                case Object.Word:
-                                    self.names[self.val[0]] = object
-                        else:
-                            self.compile_word()
-                        self.reset_state(data=False)
-                    elif token == "[":
-                        self.state = State.Execute
-                    elif token == "literal":
-                        value = self.data.pop()
-                        self.val[3].append((Object.Literal, value))
-                        self.val[2] += 1
-                    elif token in self.names.keys():
+                    if token in self.names.keys():
                         index = self.names[token]
-                        self.val[3].append((Object.Word, index))
-                        old_lout = self.val[2]
-                        new_lin, new_lout, _, _, _ = self.dictionary[index]
-                        diff = new_lin - old_lout
-                        self.val[2] = new_lout
-                        if diff > 0:
-                            self.val[1] += diff
-                        if diff < 0:
-                            self.val[2] -= diff
+                        new_lin, new_lout, _, speed, _ = self.dictionary[index]
+                        match speed:
+                            case Speed.Normal:
+                                self.val[3].append((Object.Word, index))
+                                old_lout = self.val[2]
+                                diff = new_lin - old_lout
+                                self.val[2] = new_lout
+                                if diff > 0:
+                                    self.val[1] += diff
+                                if diff < 0:
+                                    self.val[2] -= diff
+                            case Speed.Immediate:
+                                self.execute_valid_token(token)
                     else:
                         number = self.number_or_fail(token)
                         self.val[3].append((Object.Literal, number))
