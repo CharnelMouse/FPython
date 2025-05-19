@@ -115,7 +115,7 @@ class Forth:
             (Object.Word, self.names["bd"]),
             (Object.Word, self.names["]"])
         ]
-        self.compile_word()
+        self.end_definition()
 
         self.silent = silent
 
@@ -163,7 +163,7 @@ class Forth:
         self.val = Definition(name)
         self.val.lout = 1
         self.val.body.append((Object.Literal, self.here))
-        self.compile_word()
+        self.end_definition()
         self.reset_state(data=False)
         return []
 
@@ -242,7 +242,7 @@ class Forth:
         self.val.lout += 1
         return []
 
-    def compile_word(self):
+    def end_definition(self):
         self.val.body.append((Object.Return, 0))
         name = self.val.name
         entry = (
@@ -268,11 +268,11 @@ class Forth:
             object_type, object = self.val.body[0]
             match object_type:
                 case Object.Literal:
-                    self.compile_word()
+                    self.end_definition()
                 case Object.Word:
                     self.names[self.val.name] = object
         else:
-            self.compile_word()
+            self.end_definition()
         self.reset_state(data=False)
         return []
 
