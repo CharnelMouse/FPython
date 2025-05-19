@@ -142,9 +142,9 @@ class Forth:
         # : must be compiled more implicitly, then it can be used
         # to define the other initial compound words
         self.val = Definition(":")
-        self.compile_call("word")
-        self.compile_call("bd")
-        self.compile_call("]")
+        self.resolve_word_compile("word")
+        self.resolve_word_compile("bd")
+        self.resolve_word_compile("]")
         self.end_definition()
 
         # initial compound words
@@ -263,28 +263,35 @@ class Forth:
     def postpone(self):
         self.read_word()
         name = self.pad
-        index = self.names[name]
-        callee = self.dictionary[index]
-        self.val.call(index, callee)
+        self.compile_call(name)
         return []
 
     def compile_literal(self, value):
         self.val.lit(value)
         return []
 
-    def compile_call(self, name):
-        index = self.names[name]
+    def compile_call(self, token):
+        index = self.names[token]
         callee = self.dictionary[index]
-        _, _, _, speed, _ = callee
-        match speed:
-            case Speed.Normal:
-                self.val.call(index, callee)
-            case Speed.Immediate:
-                self.execute_valid_token(name)
+        self.val.call(index, callee)
         return []
 
     def compile_ret(self):
         self.val.ret()
+
+    def resolve_word_compile(self, token):
+        if token in self.names.keys():
+            index = self.names[token]
+            callee = self.dictionary[index]
+            _, _, _, speed, _ = callee
+            match speed:
+                case Speed.Normal:
+                    self.compile_call(token)
+                case Speed.Immediate:
+                    self.execute_valid_token(token)
+        else:
+            number = self.number_or_fail(token)
+            self.compile_literal(number)
 
     def end_definition(self, im=False):
         self.compile_ret()
@@ -428,11 +435,7 @@ class Forth:
                         number = self.number_or_fail(token)
                         self.data.append(number)
                 case State.Compile:
-                    if token in self.names.keys():
-                        self.compile_call(token)
-                    else:
-                        number = self.number_or_fail(token)
-                        self.compile_literal(number)
+                    self.resolve_word_compile(token)
         if self.state != State.Execute:
             self.fail("Incomplete program")
         if len(self.ret) > 0:
