@@ -24,9 +24,13 @@ class Forth:
         self.data = array('l', [])
         self.memory = array('l', [])
         self.ret = array('l', [])
+        self.input_buffer = ""
         self.silent = silent
         self.here = 0
         base_words = {
+            "create": (0, 0, Word.Base, lambda x: self.create()),
+            ":": (0, 0, Word.Base, lambda x: self.word_mode()),
+            "]": (0, 0, Word.Base, lambda x: self.compile_mode()),
             "here": (0, 1, Word.Base, lambda x: [self.here]),
             ",": (1, 0, Word.Base, lambda x: self.place(x[0])),
             "drop": (1, 0, Word.Base, lambda x: []),
@@ -92,6 +96,24 @@ class Forth:
             cur, val = val % base, val // base
             val_str = chars[cur] + val_str
         print(val_str, end=' ')
+        return []
+
+    def word_mode(self):
+        self.state = State.Word
+        return []
+
+    def compile_mode(self):
+        self.state = State.Compile
+        return []
+
+    def create(self):
+        self.input_buffer = self.input_buffer.lstrip()
+        if len(self.input_buffer) == 0:
+            self.fail("No target for create")
+        name = self.pop_token()
+        self.val = (name, 0, 1, [(Object.Literal, self.here)])
+        self.compile_word()
+        self.reset_state(data=False)
         return []
 
     def place(self, value):
@@ -255,47 +277,36 @@ class Forth:
         if lout != lin + add_lout - min_lin:
             self.fail("Word output size error: " + token)
 
+    def pop_token(self):
+        res = self.input_buffer.split(maxsplit=1)
+        if len(res) == 1:
+            self.input_buffer = []
+        else:
+            self.input_buffer = res[1]
+        return res[0]
+
     def do(self, str):
-        def pop_token():
-            nonlocal str
-            res = str.split(maxsplit=1)
-            if len(res) == 1:
-                str = []
-            else:
-                str = res[1]
-            return res[0]
-        str = str.strip()
-        while len(str) > 0:
-            token = pop_token()
+        self.input_buffer = str
+        self.input_buffer = self.input_buffer.strip()
+        while len(self.input_buffer) > 0:
+            token = self.pop_token()
             if token == "(":
                 try:
-                    index = str.index(')')
+                    index = self.input_buffer.index(')')
                 except Exception:
                     self.fail("Incomplete ( comment")
-                str = str[index + 1:]
+                self.input_buffer = self.input_buffer[index + 1:]
                 continue
             if token == "\\":
                 try:
-                    index = str.index('\n')
+                    index = self.input_buffer.index('\n')
                 except Exception:
                     break
-                str = str[index + 1:]
+                self.input_buffer = self.input_buffer[index + 1:]
                 continue
             match self.state:
                 case State.Execute:
-                    if token == ":":
-                        self.state = State.Word
-                    elif token == "]":
-                        self.state = State.Compile
-                    elif token == "create":
-                        str = str.lstrip()
-                        if len(str) == 0:
-                            self.fail("No target for create")
-                        name = pop_token()
-                        self.val = (name, 0, 1, [(Object.Literal, self.here)])
-                        self.compile_word()
-                        self.reset_state(data=False)
-                    elif token in self.names.keys():
+                    if token in self.names.keys():
                         self.execute_valid_token(token)
                     else:
                         number = self.number_or_fail(token)
