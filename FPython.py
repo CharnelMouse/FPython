@@ -30,6 +30,7 @@ class Forth:
         self.memory = array('l', [])
         self.ret = array('l', [])
         self.input_buffer = ""
+        self.pad = ""
         self.silent = silent
         self.here = 0
 
@@ -42,6 +43,7 @@ class Forth:
                 fun
             )
         base_words = {
+            "word": bw(0, 0, lambda x: self.read_word()),
             "create": bw(0, 0, lambda x: self.create()),
             ":": bw(0, 0, lambda x: self.word_mode()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
@@ -116,6 +118,13 @@ class Forth:
         print(val_str, end=' ')
         return []
 
+    def read_word(self):
+        self.input_buffer = self.input_buffer.lstrip()
+        if len(self.input_buffer) == 0:
+            self.fail("No target for create")
+        self.pad = self.pop_token()
+        return []
+
     def execute_mode(self):
         self.state = State.Execute
         return []
@@ -129,10 +138,8 @@ class Forth:
         return []
 
     def create(self):
-        self.input_buffer = self.input_buffer.lstrip()
-        if len(self.input_buffer) == 0:
-            self.fail("No target for create")
-        name = self.pop_token()
+        self.read_word()
+        name = self.pad
         self.val = (name, 0, 1, [(Object.Literal, self.here)])
         self.compile_word()
         self.reset_state(data=False)
@@ -321,6 +328,17 @@ class Forth:
         if lout != lin + add_lout - min_lin:
             self.fail("Word output size error: " + token)
 
+    def skip(self, char, fail=None):
+        try:
+            index = self.input_buffer.index(char)
+        except Exception:
+            if fail is None:
+                index = len(self.input_buffer)
+            else:
+                self.fail("Incomplete " + fail + " comment")
+        self.input_buffer = self.input_buffer[index + 1:]
+        return
+
     def pop_token(self):
         res = self.input_buffer.split(maxsplit=1)
         if len(res) == 1:
@@ -333,20 +351,13 @@ class Forth:
         self.input_buffer = str
         self.input_buffer = self.input_buffer.strip()
         while len(self.input_buffer) > 0:
-            token = self.pop_token()
+            self.read_word()
+            token = self.pad
             if token == "(":
-                try:
-                    index = self.input_buffer.index(')')
-                except Exception:
-                    self.fail("Incomplete ( comment")
-                self.input_buffer = self.input_buffer[index + 1:]
+                self.skip(")", "(")
                 continue
             if token == "\\":
-                try:
-                    index = self.input_buffer.index('\n')
-                except Exception:
-                    break
-                self.input_buffer = self.input_buffer[index + 1:]
+                self.skip("\n")
                 continue
             match self.state:
                 case State.Execute:
