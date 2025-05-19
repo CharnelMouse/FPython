@@ -7,6 +7,11 @@ class Word(Enum):
     Compound = 1
 
 
+class Speed(Enum):
+    Normal = 0
+    Immediate = 1
+
+
 class State(Enum):
     Execute = 0
     Word = 1
@@ -27,34 +32,37 @@ class Forth:
         self.input_buffer = ""
         self.silent = silent
         self.here = 0
+
+        def base_word(instack, outstack, fun):
+            return (instack, outstack, Word.Base, Speed.Normal, fun)
         base_words = {
-            "create": (0, 0, Word.Base, lambda x: self.create()),
-            ":": (0, 0, Word.Base, lambda x: self.word_mode()),
-            "]": (0, 0, Word.Base, lambda x: self.compile_mode()),
-            "here": (0, 1, Word.Base, lambda x: [self.here]),
-            ",": (1, 0, Word.Base, lambda x: self.place(x[0])),
-            "drop": (1, 0, Word.Base, lambda x: []),
-            ".": (1, 0, Word.Base, lambda x: self.fp(x)),
-            "@": (1, 1, Word.Base, lambda x: self.fetch(x[0])),
-            "r>": (0, 1, Word.Base, lambda x: self.rFetch()),
-            "dup": (1, 2, Word.Base, lambda x: x + x),
-            "!": (2, 0, Word.Base, lambda x: self.store(x[0], x[1])),
-            ">r": (1, 0, Word.Base, lambda x: self.rStore(x[0])),
-            "+": (2, 1, Word.Base, lambda x: [x[0] + x[1]]),
-            "-": (2, 1, Word.Base, lambda x: [x[0] - x[1]]),
-            "*": (2, 1, Word.Base, lambda x: [x[0] * x[1]]),
-            "/": (2, 1, Word.Base, lambda x: [x[0] // x[1]]),
-            "=": (2, 1, Word.Base, lambda x: [int(x[0] == x[1])]),
-            "<": (2, 1, Word.Base, lambda x: [int(x[0] < x[1])]),
-            "<=": (2, 1, Word.Base, lambda x: [int(x[0] <= x[1])]),
-            ">": (2, 1, Word.Base, lambda x: [int(x[0] > x[1])]),
-            ">=": (2, 1, Word.Base, lambda x: [int(x[0] >= x[1])]),
-            "<>": (2, 1, Word.Base, lambda x: [int(x[0] != x[1])]),
-            "swap": (2, 2, Word.Base, lambda x: list(reversed(x))),
-            "over": (2, 3, Word.Base, lambda x: [x[0], x[1], x[0]]),
-            "tuck": (2, 3, Word.Base, lambda x: [x[1], x[0], x[1]]),
-            "rot": (3, 3, Word.Base, lambda x: [x[1], x[2], x[0]]),
-            "-rot": (3, 3, Word.Base, lambda x: [x[2], x[0], x[1]]),
+            "create": base_word(0, 0, lambda x: self.create()),
+            ":": base_word(0, 0, lambda x: self.word_mode()),
+            "]": base_word(0, 0, lambda x: self.compile_mode()),
+            "here": base_word(0, 1, lambda x: [self.here]),
+            ",": base_word(1, 0, lambda x: self.place(x[0])),
+            "drop": base_word(1, 0, lambda x: []),
+            ".": base_word(1, 0, lambda x: self.fp(x)),
+            "@": base_word(1, 1, lambda x: self.fetch(x[0])),
+            "r>": base_word(0, 1, lambda x: self.rFetch()),
+            "dup": base_word(1, 2, lambda x: x + x),
+            "!": base_word(2, 0, lambda x: self.store(x[0], x[1])),
+            ">r": base_word(1, 0, lambda x: self.rStore(x[0])),
+            "+": base_word(2, 1, lambda x: [x[0] + x[1]]),
+            "-": base_word(2, 1, lambda x: [x[0] - x[1]]),
+            "*": base_word(2, 1, lambda x: [x[0] * x[1]]),
+            "/": base_word(2, 1, lambda x: [x[0] // x[1]]),
+            "=": base_word(2, 1, lambda x: [int(x[0] == x[1])]),
+            "<": base_word(2, 1, lambda x: [int(x[0] < x[1])]),
+            "<=": base_word(2, 1, lambda x: [int(x[0] <= x[1])]),
+            ">": base_word(2, 1, lambda x: [int(x[0] > x[1])]),
+            ">=": base_word(2, 1, lambda x: [int(x[0] >= x[1])]),
+            "<>": base_word(2, 1, lambda x: [int(x[0] != x[1])]),
+            "swap": base_word(2, 2, lambda x: list(reversed(x))),
+            "over": base_word(2, 3, lambda x: [x[0], x[1], x[0]]),
+            "tuck": base_word(2, 3, lambda x: [x[1], x[0], x[1]]),
+            "rot": base_word(3, 3, lambda x: [x[1], x[2], x[0]]),
+            "-rot": base_word(3, 3, lambda x: [x[2], x[0], x[1]]),
         }
         self.dictionary = list(base_words.values())
         self.names = {k: list(base_words).index(k) for k in list(base_words)}
@@ -73,6 +81,7 @@ class Forth:
             0,
             1,
             Word.Compound,
+            Speed.Normal,
             [(Object.Literal, self.here)]
         )]
         self.place(10)
@@ -159,7 +168,7 @@ class Forth:
     def trace(self, token):
         if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
-        lin, lout, _, _ = self.dictionary[self.names[token]]
+        lin, lout, _, _, _ = self.dictionary[self.names[token]]
         return lin, lout
 
     def orphans(self):
@@ -169,7 +178,7 @@ class Forth:
             old.append(new[0])
             new = new[1:]
             for index in new:
-                _, _, word_type, word = self.dictionary[index]
+                _, _, word_type, _, word = self.dictionary[index]
                 match word_type:
                     case Word.Compound:
                         children = [
@@ -193,6 +202,7 @@ class Forth:
             self.val[1],
             self.val[2],
             Word.Compound,
+            Speed.Normal,
             self.val[3]
         )
         try:
@@ -232,7 +242,7 @@ class Forth:
             offset = current - s
             assert 0 <= offset < self.lengths[dictionary_index]
 
-            lin, lout, word_type, word = self.dictionary[dictionary_index]
+            lin, lout, word_type, _, word = self.dictionary[dictionary_index]
             match word_type:
                 case Word.Base:
                     # execute the word, leave nothing back on the return stack
@@ -267,7 +277,7 @@ class Forth:
     def execute_valid_token(self, token):
         index = self.names[token]
         lin = len(self.data)
-        min_lin, add_lout, _, _ = self.dictionary[index]
+        min_lin, add_lout, _, _, _ = self.dictionary[index]
         if lin < min_lin:
             self.fail("Data stack underflow: " + token)
         word_offset = sum(self.lengths[:index])
@@ -339,7 +349,7 @@ class Forth:
                         index = self.names[token]
                         self.val[3].append((Object.Word, index))
                         old_lout = self.val[2]
-                        new_lin, new_lout, _, _ = self.dictionary[index]
+                        new_lin, new_lout, _, _, _ = self.dictionary[index]
                         diff = new_lin - old_lout
                         self.val[2] = new_lout
                         if diff > 0:
