@@ -31,7 +31,7 @@ class Definition:
         self.body = []
 
     def call(self, index, callee):
-        new_lin, new_lout, _, _, _ = callee
+        new_lin, new_lout, _, _ = callee
         self.body.append((Object.Word, index))
         old_lout = self.lout
         diff = new_lin - old_lout
@@ -48,14 +48,13 @@ class Definition:
     def ret(self):
         self.body.append((Object.Return, 0))
 
-    def end(self, im):
+    def end(self):
         return (
             self.name,
             (
                 self.lin,
                 self.lout,
                 Word.Compound,
-                Speed.Immediate if im else Speed.Normal,
                 self.body
             )
         )
@@ -113,8 +112,17 @@ class Forth:
             "rot": bw(3, 3, lambda x: [x[1], x[2], x[0]]),
             "-rot": bw(3, 3, lambda x: [x[2], x[0], x[1]]),
         }
-        self.dictionary = list(base_words.values())
+        self.dictionary = [
+            (lin, lout, word_type, body)
+            for (lin, lout, word_type, _, body)
+            in base_words.values()
+        ]
         self.names = {k: list(base_words).index(k) for k in list(base_words)}
+        self.speeds = {
+            k: speed
+            for (k, (_, _, _, speed, _))
+            in base_words.items()
+        }
         self.lengths = array('l', [
             1 if x[2] == Word.Base
             else len(x[3])
@@ -130,11 +138,11 @@ class Forth:
             0,
             1,
             Word.Compound,
-            Speed.Normal,
             [(Object.Literal, self.here)]
         )]
         self.place(10)
         self.names["base"] = len(self.dictionary) - 1
+        self.speeds["base"] = Speed.Normal
         self.lengths.append(1)
 
         # : must be compiled more implicitly, then it can be used
@@ -143,7 +151,7 @@ class Forth:
         self.resolve_word_compile("word")
         self.resolve_word_compile("bd")
         self.resolve_word_compile("]")
-        self.end_definition()
+        self.end_compile()
 
         # initial compound words
         self.do(
@@ -233,7 +241,7 @@ class Forth:
     def trace(self, token):
         if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
-        lin, lout, _, _, _ = self.dictionary[self.names[token]]
+        lin, lout, _, _ = self.dictionary[self.names[token]]
         return lin, lout
 
     def orphans(self):
@@ -243,7 +251,7 @@ class Forth:
             old.append(new[0])
             new = new[1:]
             for index in new:
-                _, _, word_type, _, word = self.dictionary[index]
+                _, _, word_type, word = self.dictionary[index]
                 match word_type:
                     case Word.Compound:
                         children = [
@@ -281,9 +289,7 @@ class Forth:
 
     def resolve_word_compile(self, token):
         if token in self.names.keys():
-            index = self.names[token]
-            callee = self.dictionary[index]
-            _, _, _, speed, _ = callee
+            speed = self.speeds[token]
             match speed:
                 case Speed.Normal:
                     self.compile_call(token)
@@ -295,12 +301,13 @@ class Forth:
 
     def end_definition(self, im=False):
         self.compile_ret()
-        name, entry = self.val.end(im)
+        name, entry = self.val.end()
         try:
             index = self.dictionary.index(entry)
             self.names[name] = index
         except Exception:
             self.names[name] = len(self.dictionary)
+            self.speeds[name] = Speed.Immediate if im else Speed.Normal
             self.dictionary.append(entry)
             self.lengths.append(len(self.val.body))
 
@@ -317,6 +324,7 @@ class Forth:
                     self.end_definition(im=im)
                 case Object.Word:
                     self.names[name] = object
+                    self.speeds[name] = Speed.Immediate if im else Speed.Normal
         else:
             self.end_definition(im=im)
         self.reset_state(data=False)
@@ -351,7 +359,7 @@ class Forth:
             offset = current - s
             assert 0 <= offset < self.lengths[dictionary_index]
 
-            lin, lout, word_type, _, word = self.dictionary[dictionary_index]
+            lin, lout, word_type, word = self.dictionary[dictionary_index]
             match word_type:
                 case Word.Base:
                     # execute the word, leave nothing back on the return stack
@@ -386,7 +394,7 @@ class Forth:
     def execute_valid_token(self, token):
         index = self.names[token]
         lin = len(self.data)
-        min_lin, add_lout, _, _, _ = self.dictionary[index]
+        min_lin, add_lout, _, _ = self.dictionary[index]
         if lin < min_lin:
             self.fail("Data stack underflow: " + token)
         word_offset = sum(self.lengths[:index])
