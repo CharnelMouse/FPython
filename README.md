@@ -9,7 +9,7 @@ The main Forth() class is used to contain the state of the Forth session, includ
 Optionally, a session can be silent, i.e. not printing any output or prompts.\
 This is mostly intended for making the tests silent.
 
-The data stack, and the "memory", are stored as arrays of 1-byte-minimum-size integers (`'b'`).\
+The data stack, and the "memory", are stored as arrays of 4-byte-minimum-size integers (`'l'`).\
 True values are done as 1 rather than -1, because Python's arbitrary-precision integers make it difficult to do anything that depends on a particular integer length or bit layout.\
 All non-zero values will be counted as true in conditions, as usual.
 
@@ -49,4 +49,7 @@ The plan for this method is as part of allowing the user to ask the session to p
 The value of `here` is therefore unchanged, and consecutive `create` calls point to the same memory position.\
 As with words, the idea is to keep names/aliases and contents separate.
 
-Only the `( ... )` style of comments is supported, because I don't want to make around with device-dependents issues like how to end a line.
+Both `( ... )` and `\ ... \n` styles of comments are supported. This assumes that '\n' is the computer's newline character.
+
+`base` is implemented, to let input/output use a base different to 10. There's nothing stopping you from giving a base outside of the expected range [2, 36], but doing so will give you odd behaviour, or just result in an error.\
+`decimal`, `hex`, and `binary` for setting common bases are not added yet.
