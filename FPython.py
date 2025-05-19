@@ -251,6 +251,13 @@ class Forth:
                     self.fail("Incomplete ( comment")
                 str = str[index + 1:]
                 continue
+            if token == "\\":
+                try:
+                    index = str.index('\n')
+                except Exception:
+                    break
+                str = str[index + 1:]
+                continue
             match self.state:
                 case State.Execute:
                     if token == ":":
@@ -509,6 +516,17 @@ del f
 f = Forth(True)
 f.do(": ( same as plus ) tst + ;")
 assert f.names["tst"] == f.names["+"]
+del f
+
+# takes \ comments
+f = Forth(True)
+f.do("1 \\ 2 +")
+assert f.S() == [1]
+del f
+# continues after newline
+f = Forth(True)
+f.do("1 \\ 2 + \n 3 +")
+assert f.S() == [4]
 del f
 
 # can use return stack to store values
