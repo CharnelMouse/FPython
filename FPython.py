@@ -188,11 +188,9 @@ class Forth:
 
     def create(self):
         self.read_word()
-        name = self.pad
-        self.val = Definition(name)
+        self.begin_definition()
         self.compile_literal(self.here)
-        self.end_definition()
-        self.reset_state(data=False)
+        self.end_compile()
         return []
 
     def place(self, value):
