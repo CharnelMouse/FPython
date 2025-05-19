@@ -48,14 +48,14 @@ class Definition:
     def ret(self):
         self.body.append((Object.Return, 0))
 
-    def end(self):
+    def end(self, im):
         return (
             self.name,
             (
                 self.lin,
                 self.lout,
                 Word.Compound,
-                Speed.Normal,
+                Speed.Immediate if im else Speed.Normal,
                 self.body
             )
         )
@@ -84,6 +84,7 @@ class Forth:
             "word": bw(0, 0, lambda x: self.read_word()),
             "create": bw(0, 0, lambda x: self.create()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
+            ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
             "]": bw(0, 0, lambda x: self.compile_mode()),
             "here": bw(0, 1, lambda x: [self.here]),
@@ -282,9 +283,9 @@ class Forth:
     def compile_ret(self):
         self.val.ret()
 
-    def end_definition(self):
+    def end_definition(self, im=False):
         self.compile_ret()
-        name, entry = self.val.end()
+        name, entry = self.val.end(im)
         try:
             index = self.dictionary.index(entry)
             self.names[name] = index
@@ -293,7 +294,7 @@ class Forth:
             self.dictionary.append(entry)
             self.lengths.append(len(self.val.body))
 
-    def end_compile(self):
+    def end_compile(self, im=False):
         name = self.val.name
         if not self.silent:
             if name in self.names.keys():
@@ -303,11 +304,11 @@ class Forth:
             object_type, object = body[0]
             match object_type:
                 case Object.Literal:
-                    self.end_definition()
+                    self.end_definition(im=im)
                 case Object.Word:
                     self.names[name] = object
         else:
-            self.end_definition()
+            self.end_definition(im=im)
         self.reset_state(data=False)
         return []
 
@@ -702,4 +703,10 @@ del f
 f = Forth(True)
 f.do("36 base ! LBA")
 assert f.S() == [27622]
+del f
+
+# can compile immediate words
+f = Forth(True)
+f.do(": tst 1 + ;im 3 : tst2 tst literal ; tst2")
+assert f.S() == [4]
 del f
