@@ -81,8 +81,9 @@ class Forth:
             )
         base_words = {
             "bd": bw(0, 0, lambda x: self.begin_definition()),
+            "ec": bw(0, 0, lambda x: self.end_compile()),
+            "cl": bw(1, 0, lambda x: self.compile_literal(x[0])),
             "word": bw(0, 0, lambda x: self.read_word()),
-            "create": bw(0, 0, lambda x: self.create()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
             ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
@@ -137,14 +138,16 @@ class Forth:
         self.names["base"] = len(self.dictionary) - 1
         self.lengths.append(1)
 
-        # initial compound words
         # : must be compiled more implicitly, then it can be used
-        # to define the rest
+        # to define the other initial compound words
         self.val = Definition(":")
         self.compile_call("word")
         self.compile_call("bd")
         self.compile_call("]")
         self.end_definition()
+
+        # initial compound words
+        self.do(": create word bd here cl ec ;")
 
         self.silent = silent
 
@@ -184,13 +187,6 @@ class Forth:
 
     def compile_mode(self):
         self.state = State.Compile
-        return []
-
-    def create(self):
-        self.read_word()
-        self.begin_definition()
-        self.compile_literal(self.here)
-        self.end_compile()
         return []
 
     def place(self, value):
