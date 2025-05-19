@@ -271,7 +271,11 @@ class Forth:
     def postpone(self):
         self.read_word()
         name = self.pad
-        self.compile_call(name)
+        if name in self.names.keys():
+            self.compile_call(name)
+        else:
+            number = self.number_or_fail(name)
+            self.compile_literal(number)
         return []
 
     def compile_literal(self, value):
@@ -729,4 +733,10 @@ del f
 f = Forth(True)
 f.do(": tst 1 + ;im : tst2 3 postpone tst ; tst2")
 assert f.S() == [4]
+del f
+
+# can postpone literals
+f = Forth(True)
+f.do(": tst postpone 1 ; tst")
+assert f.S() == [1]
 del f
