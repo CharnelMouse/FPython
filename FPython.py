@@ -309,18 +309,17 @@ class Forth:
         try:
             index = self.dictionary.index(entry)
             self.names[name] = index
-            self.speeds[name] = Speed.Immediate if im else Speed.Normal
         except Exception:
             self.names[name] = len(self.dictionary)
-            self.speeds[name] = Speed.Immediate if im else Speed.Normal
             self.dictionary.append(entry)
             self.lengths.append(len(self.val.body))
+        finally:
+            self.speeds[name] = Speed.Immediate if im else Speed.Normal
 
     def end_compile(self, im=False):
         name = self.val.name
-        if not self.silent:
-            if name in self.names.keys():
-                print(name + " is redefined")
+        if not self.silent and name in self.names.keys():
+            print(name + " is redefined")
         body = self.val.body
         if (len(body) == 1):
             object_type, object = body[0]
