@@ -353,11 +353,15 @@ class Forth:
         return []
 
     def number_or_fail(self, token):
+        base = self.memory[0]
+        if len(token) > 0 and token[0] == "#":
+            base = 10
+            token = token[1:]
         try:
-            number = int(token, base=self.memory[0])
+            number = int(token, base=base)
+            return number
         except Exception:
             self.fail("Undefined word: " + token)
-        return number
 
     def resolve_return_stack(self, token):
         while len(self.ret) > 0:
@@ -826,4 +830,12 @@ try:
     assert f.S() == [5]
 finally:
     del file
+    del f
+
+# can take #n, for decimal number n, as a literal if #n isn't a defined word
+f = Forth(True)
+try:
+    f.do("16 base ! #100")
+    assert f.S() == [100]
+finally:
     del f
