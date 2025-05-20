@@ -14,7 +14,9 @@ The interpreter does the traditional approach of trying to match a token to a de
 Borrowing from VFXForth, you can also write `#n`, where `n` is some number: this parses `n` as a number in base 10, regardless of the current base.\
 The current base is stored at `base`, and `binary`, `decimal`, and `hex` set common bases, as usual.
 
-The data stack, and the "memory", are stored as arrays of 4-byte-minimum-size integers (`'l'`).\
+By default, the data and return stacks, and the "memory", are stored as arrays of 4-byte-minimum-size integers (`'l'`).\
+When creating the Forth() object, the cells argument lets you also choose 1-, 2-, or 8-byte sizes ('b', 'l', 'q').\
+`cell` puts the selected size on the stack, as usual.
 True values are done as 1 rather than -1, because Python's arbitrary-precision integers make it difficult to do anything that depends on a particular integer length or bit layout.\
 All non-zero values will be counted as true in conditions, as usual.
 

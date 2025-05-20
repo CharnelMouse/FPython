@@ -62,10 +62,16 @@ class Definition:
 
 
 class Forth:
-    def __init__(self, silent=False):
-        self.data = array('l', [])
-        self.memory = array('l', [])
-        self.ret = array('l', [])
+    def __init__(self, silent=False, cell=4):
+        cell_types = {1: 'b', 2: 'h', 4: 'l', 8: 'q'}
+        try:
+            cell_type = cell_types[cell]
+        except KeyError:
+            raise RuntimeError("Invalid cell size: " + str(cell))
+        self.cell = cell
+        self.data = array(cell_type, [])
+        self.memory = array(cell_type, [])
+        self.ret = array(cell_type, [])
         self.input_buffer = ""
         self.pad = ""
         self.silent = True
@@ -88,6 +94,7 @@ class Forth:
             ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
             "]": bw(0, 0, lambda x: self.compile_mode()),
+            "cell": bw(0, 1, lambda x: [self.cell]),
             "here": bw(0, 1, lambda x: [self.here]),
             "trace": bw(0, 2, lambda x: self.trace()),
             ",": bw(1, 0, lambda x: self.place(x[0])),
@@ -130,7 +137,7 @@ class Forth:
             for (k, (_, _, _, speed, _))
             in base_words.items()
         }
-        self.lengths = array('l', [
+        self.lengths = array(cell_type, [
             1 if x[2] == Word.Base
             else len(x[3])
             for x in self.dictionary
@@ -235,7 +242,7 @@ class Forth:
     def store(self, value, index):
         if index >= len(self.memory):
             extra = index - len(self.memory) + 1
-            self.memory += array('l', extra*[0])
+            self.memory += array(self.memory.typecode, extra*[0])
         self.memory[index] = value
         return []
 
@@ -401,7 +408,7 @@ class Forth:
                         used = self.data[-lin:]
                         rest = self.data[:-lin]
                     new = word(used)
-                    self.data = rest + array('l', new)
+                    self.data = rest + array(rest.typecode, new)
                 case Word.Compound:
                     # add all initial literals
                     while offset < len(word):
@@ -860,3 +867,43 @@ try:
     assert f.S() == [2, 1, 0, 0]
 finally:
     del f
+
+# can pick a cell size in 1, 2, 4, 8 bytes; CELL returns this size
+try:
+    f = Forth(True, cell=1)
+    assert f.data.typecode == 'b'
+    f.do("cell")
+    f.S() == 1
+    del f
+except Exception:
+    raise
+try:
+    f = Forth(True, cell=2)
+    assert f.data.typecode == 'h'
+    f.do("cell")
+    f.S() == 2
+    del f
+except Exception:
+    raise
+try:
+    f = Forth(True, cell=4)
+    assert f.data.typecode == 'l'
+    f.do("cell")
+    f.S() == 4
+    del f
+except Exception:
+    raise
+try:
+    f = Forth(True, cell=8)
+    assert f.data.typecode == 'q'
+    f.do("cell")
+    f.S() == 8
+    del f
+except Exception:
+    raise
+try:
+    f = Forth(True, cell=7)
+    del f
+    raise AssertionError("Forth(cell = 7) doesn't fail")
+except Exception:
+    pass
