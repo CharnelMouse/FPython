@@ -427,7 +427,7 @@ class Forth:
     def pop_token(self):
         res = self.input_buffer.split(maxsplit=1)
         if len(res) == 1:
-            self.input_buffer = []
+            self.input_buffer = ""
         else:
             self.input_buffer = res[1]
         return res[0].upper()
