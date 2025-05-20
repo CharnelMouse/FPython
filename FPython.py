@@ -1,3 +1,4 @@
+from tempfile import NamedTemporaryFile as tempfile  # for tests only
 from array import array
 from enum import Enum
 
@@ -82,6 +83,7 @@ class Forth:
             "bd": bw(0, 0, lambda x: self.begin_definition()),
             "postpone": bw(0, 0, lambda x: self.postpone(), im=True),
             "word": bw(0, 0, lambda x: self.read_word()),
+            "include": bw(0, 0, lambda x: self.include()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
             ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
@@ -188,6 +190,17 @@ class Forth:
         if len(self.input_buffer) == 0:
             self.fail("No target for create")
         self.pad = self.pop_token()
+        return []
+
+    def include(self):
+        self.read_word()
+        try:
+            with open(self.pad, "r") as file:
+                txt = str(file.read())
+                file.close()
+            self.input_buffer = txt + " " + self.input_buffer
+        except FileNotFoundError:
+            self.fail("File not found: " + self.pad)
         return []
 
     def execute_mode(self):
@@ -800,4 +813,17 @@ try:
     f.do("tst")
     assert f.S() == [5]
 finally:
+    del f
+
+# can include files
+file = tempfile(delete=False)
+file.write(b': tst 1 + ;\n: tst2 tst tst ;')
+file.close()
+f = Forth(True)
+try:
+    f.do("include " + file.name)
+    f.do("3 tst2")
+    assert f.S() == [5]
+finally:
+    del file
     del f
