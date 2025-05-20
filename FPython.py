@@ -746,28 +746,31 @@ f = Forth(True)
 f.do(": tst-im 1 + ;im")
 f.do(": tst-non postpone tst-im ;")
 try:
+    assert f.names["tst-non"] == f.names["tst-im"]
     f.do(": tst 4 tst-non ;")
     f.do("tst")
     assert f.S() == [5]
 finally:
     del f
 
-# keeps postponed copies of immediate words non-immediate
+# keeps simple copies of immediate words non-immediate
 f = Forth(True)
 f.do(": tst-im 1 + ;im")
-f.do(": tst-non postpone 1 postpone + ;")
+f.do(": tst-non 1 + ;")
 try:
+    assert f.names["tst-non"] == f.names["tst-im"]
     f.do(": tst 4 tst-non ;")
     f.do("tst")
     assert f.S() == [5]
 finally:
     del f
 
-# keeps simple immediate callers of non-immediate words immediate
+# keeps immediate callers of non-immediate words immediate
 f = Forth(True)
 f.do(": tst-non 1 + ;")
 f.do(": tst-im tst-non ;im")
 try:
+    assert f.names["tst-non"] == f.names["tst-im"]
     f.do("4 : tst tst-im literal ;")
     f.do("tst")
     assert f.S() == [5]
@@ -779,6 +782,7 @@ f = Forth(True)
 f.do(": tst-non 1 + ;")
 f.do(": tst-im 1 + ;im")
 try:
+    assert f.names["tst-non"] == f.names["tst-im"]
     f.do("4 : tst tst-im literal ;")
     f.do("tst")
     assert f.S() == [5]
