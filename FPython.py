@@ -162,6 +162,9 @@ class Forth:
         self.do(
             ": create postpone : postpone here postpone literal postpone ; ;"
         )
+        self.do(": binary #2 base ! ;")
+        self.do(": decimal #10 base ! ;")
+        self.do(": hex #16 base ! ;")
 
         self.silent = silent
 
@@ -836,5 +839,13 @@ f = Forth(True)
 try:
     f.do("16 base ! #100")
     assert f.S() == [100]
+finally:
+    del f
+
+# can use binary, decimal, and hex for common bases
+f = Forth(True)
+try:
+    f.do("binary 1010 hex A decimal 10")
+    assert f.S() == [10, 10, 10]
 finally:
     del f
