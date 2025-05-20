@@ -117,9 +117,13 @@ class Forth:
             for (lin, lout, word_type, _, body)
             in base_words.values()
         ]
-        self.names = {k: list(base_words).index(k) for k in list(base_words)}
+        self.names = {
+            k.upper(): list(base_words).index(k)
+            for k
+            in list(base_words)
+        }
         self.speeds = {
-            k: speed
+            k.upper(): speed
             for (k, (_, _, _, speed, _))
             in base_words.items()
         }
@@ -141,15 +145,15 @@ class Forth:
             [(Object.Literal, self.here)]
         )]
         self.place(10)
-        self.names["base"] = len(self.dictionary) - 1
-        self.speeds["base"] = Speed.Normal
+        self.names["BASE"] = len(self.dictionary) - 1
+        self.speeds["BASE"] = Speed.Normal
         self.lengths.append(1)
 
         # : must be compiled more implicitly, then it can be used
         # to define the other initial compound words
         self.val = Definition(":")
-        self.resolve_word_compile("word")
-        self.resolve_word_compile("bd")
+        self.resolve_word_compile("WORD")
+        self.resolve_word_compile("BD")
         self.resolve_word_compile("]")
         self.end_compile()
 
@@ -239,6 +243,7 @@ class Forth:
         raise RuntimeError(str)
 
     def trace(self, token):
+        token = token.upper()
         if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
         lin, lout, _, _ = self.dictionary[self.names[token]]
@@ -425,7 +430,7 @@ class Forth:
             self.input_buffer = []
         else:
             self.input_buffer = res[1]
-        return res[0]
+        return res[0].upper()
 
     def do(self, str):
         self.input_buffer = str
@@ -487,15 +492,23 @@ del f
 # words with same definition point to same entry
 f = Forth(True)
 f.do(": a 1 + ; : b 1 + ;")
-assert f.names["a"] == f.names["b"]
+assert f.names["A"] == f.names["B"]
 del f
 
 # if a defined word just calls a single other word,
 # it just takes the same body
 f = Forth(True)
 f.do(": add + ;")
-assert f.names["add"] == f.names["+"]
+assert f.names["ADD"] == f.names["+"]
 del f
+
+# is case-insensitive
+f = Forth(True)
+try:
+    f.do("1 DrOp")
+    assert f.S() == []
+finally:
+    del f
 
 # compound words call base words properly
 f = Forth(True)
@@ -527,7 +540,7 @@ del f
 # words are correctly marked as orphans
 f = Forth(True)
 f.do(": a 1 ; : b a 2 ; : c b 3 ;")
-start = f.names["a"]
+start = f.names["A"]
 assert f.orphans() == []
 f.do(": a 4 ;")
 assert f.orphans() == []
@@ -656,7 +669,7 @@ del f
 # takes comments in definitions
 f = Forth(True)
 f.do(": tst ( n n -- n ) + ;")
-assert f.names["tst"] == f.names["+"]
+assert f.names["TST"] == f.names["+"]
 del f
 
 # cannot take comment before defined word name
@@ -746,7 +759,7 @@ f = Forth(True)
 f.do(": tst-im 1 + ;im")
 f.do(": tst-non postpone tst-im ;")
 try:
-    assert f.names["tst-non"] == f.names["tst-im"]
+    assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do(": tst 4 tst-non ;")
     f.do("tst")
     assert f.S() == [5]
@@ -758,7 +771,7 @@ f = Forth(True)
 f.do(": tst-im 1 + ;im")
 f.do(": tst-non 1 + ;")
 try:
-    assert f.names["tst-non"] == f.names["tst-im"]
+    assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do(": tst 4 tst-non ;")
     f.do("tst")
     assert f.S() == [5]
@@ -770,7 +783,7 @@ f = Forth(True)
 f.do(": tst-non 1 + ;")
 f.do(": tst-im tst-non ;im")
 try:
-    assert f.names["tst-non"] == f.names["tst-im"]
+    assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do("4 : tst tst-im literal ;")
     f.do("tst")
     assert f.S() == [5]
@@ -782,7 +795,7 @@ f = Forth(True)
 f.do(": tst-non 1 + ;")
 f.do(": tst-im 1 + ;im")
 try:
-    assert f.names["tst-non"] == f.names["tst-im"]
+    assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do("4 : tst tst-im literal ;")
     f.do("tst")
     assert f.S() == [5]

@@ -9,6 +9,8 @@ The main Forth() class is used to contain the state of the Forth session, includ
 Optionally, a session can be silent, i.e. not printing any output or prompts.\
 This is mostly intended for making the tests silent.
 
+As usual, Forth code is case-insensitive.
+
 The data stack, and the "memory", are stored as arrays of 4-byte-minimum-size integers (`'l'`).\
 True values are done as 1 rather than -1, because Python's arbitrary-precision integers make it difficult to do anything that depends on a particular integer length or bit layout.\
 All non-zero values will be counted as true in conditions, as usual.
