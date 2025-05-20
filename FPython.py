@@ -309,6 +309,7 @@ class Forth:
         try:
             index = self.dictionary.index(entry)
             self.names[name] = index
+            self.speeds[name] = Speed.Immediate if im else Speed.Normal
         except Exception:
             self.names[name] = len(self.dictionary)
             self.speeds[name] = Speed.Immediate if im else Speed.Normal
@@ -740,3 +741,47 @@ f = Forth(True)
 f.do(": tst postpone 1 ; tst")
 assert f.S() == [1]
 del f
+
+# keeps simple postponed callers of immediate words non-immediate
+f = Forth(True)
+f.do(": tst-im 1 + ;im")
+f.do(": tst-non postpone tst-im ;")
+try:
+    f.do(": tst 4 tst-non ;")
+    f.do("tst")
+    assert f.S() == [5]
+finally:
+    del f
+
+# keeps postponed copies of immediate words non-immediate
+f = Forth(True)
+f.do(": tst-im 1 + ;im")
+f.do(": tst-non postpone 1 postpone + ;")
+try:
+    f.do(": tst 4 tst-non ;")
+    f.do("tst")
+    assert f.S() == [5]
+finally:
+    del f
+
+# keeps simple immediate callers of non-immediate words immediate
+f = Forth(True)
+f.do(": tst-non 1 + ;")
+f.do(": tst-im tst-non ;im")
+try:
+    f.do("4 : tst tst-im literal ;")
+    f.do("tst")
+    assert f.S() == [5]
+finally:
+    del f
+
+# keeps immediate copies of non-immediate words immediate
+f = Forth(True)
+f.do(": tst-non 1 + ;")
+f.do(": tst-im 1 + ;im")
+try:
+    f.do("4 : tst tst-im literal ;")
+    f.do("tst")
+    assert f.S() == [5]
+finally:
+    del f
