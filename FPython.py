@@ -134,7 +134,6 @@ class Forth:
             else len(x[3])
             for x in self.dictionary
         ])
-        self.silent = silent
         self.state = State.Execute
         self.val = None
 
