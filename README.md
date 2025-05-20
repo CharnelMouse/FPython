@@ -28,6 +28,7 @@ Both stacks are emptied on failure, as usual.
 Words are stored with their expected minimum input stack size, and relative output stack size.\
 This is also done for words defined by the user, and done by making use of the same information for the words it calls.\
 If I ever let users define new "basic" words (equivalent to Forth letting words be written in Assembly), then I'd need to think about how to handle it there.\
+`trace [word]` can be used to put `[word]`'s stack effect information on the stack.\
 When words are executed, the input stack and output are checked against this information.\
 For compound words, called words are not themselves checked, because their stack conditions are already satisfied when calculating the conditions for the calling word.\
 The interpreter handles immediate words, which can be defined using `;im` instead of `;`.\

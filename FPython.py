@@ -89,6 +89,7 @@ class Forth:
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
             "]": bw(0, 0, lambda x: self.compile_mode()),
             "here": bw(0, 1, lambda x: [self.here]),
+            "trace": bw(0, 2, lambda x: self.trace()),
             ",": bw(1, 0, lambda x: self.place(x[0])),
             "literal": bw(1, 0, lambda x: self.compile_literal(x[0]), im=True),
             "drop": bw(1, 0, lambda x: []),
@@ -257,12 +258,13 @@ class Forth:
         self.reset_state(data=True)
         raise RuntimeError(str)
 
-    def trace(self, token):
-        token = token.upper()
+    def trace(self):
+        self.read_word()
+        token = self.pad.upper()
         if token not in self.names.keys():
             raise RuntimeError("Undefined word: " + token)
         lin, lout, _, _ = self.dictionary[self.names[token]]
-        return lin, lout
+        return [lin, lout]
 
     def orphans(self):
         old = []
@@ -496,8 +498,9 @@ del f
 
 # stack effect induction works
 f = Forth(True)
-f.do(": tst over dup -rot + ;")
-assert f.trace("tst") == (2, 3)
+f.do(": tst over dup -rot + ; trace tst")
+assert f.S() == [2, 3]
+f.do("drop drop")
 f.do("2 1 tst")
 assert f.S() == [2, 2, 3]
 del f
@@ -847,5 +850,13 @@ f = Forth(True)
 try:
     f.do("binary 1010 hex A decimal 10")
     assert f.S() == [10, 10, 10]
+finally:
+    del f
+
+# can retrieve a defined word's stack effect ( -- in out )
+f = Forth(True)
+try:
+    f.do("trace = trace hex")
+    assert f.S() == [2, 1, 0, 0]
 finally:
     del f
