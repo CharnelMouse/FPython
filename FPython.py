@@ -92,6 +92,8 @@ class Forth:
             "include": bw(0, 0, lambda x: self.include()),
             ";": bw(0, 0, lambda x: self.end_compile(), im=True),
             ";im": bw(0, 0, lambda x: self.end_compile(im=True), im=True),
+            ";r": bw(0, 0, lambda x: self.end_compile(reduce1=True), im=True),
+            ";imr": bw(0, 0, lambda x: self.end_compile(True, True), im=True),
             "[": bw(0, 0, lambda x: self.execute_mode(), im=True),
             "]": bw(0, 0, lambda x: self.compile_mode()),
             "cell": bw(0, 1, lambda x: [self.cell]),
@@ -345,12 +347,12 @@ class Forth:
         finally:
             self.speeds[name] = Speed.Immediate if im else Speed.Normal
 
-    def end_compile(self, im=False):
+    def end_compile(self, im=False, reduce1=False):
         name = self.val.name
         if not self.silent and name in self.names.keys():
             print(name + " is redefined")
         body = self.val.body
-        if (len(body) == 1):
+        if (reduce1 and len(body) == 1):
             object_type, object = body[0]
             match object_type:
                 case Object.Literal:
@@ -525,9 +527,9 @@ assert f.names["A"] == f.names["B"]
 del f
 
 # if a defined word just calls a single other word,
-# it just takes the same body
+# it just takes the same body, if ;r is used
 f = Forth(True)
-f.do(": add + ;")
+f.do(": add + ;r")
 assert f.names["ADD"] == f.names["+"]
 del f
 
@@ -697,7 +699,7 @@ del f
 
 # takes comments in definitions
 f = Forth(True)
-f.do(": tst ( n n -- n ) + ;")
+f.do(": tst ( n n -- n ) + ;r")
 assert f.names["TST"] == f.names["+"]
 del f
 
@@ -747,6 +749,26 @@ except Exception:
     assert len(f.ret) == 0
 del f
 
+# can use return stack for co-routines
+f = Forth(True)
+try:
+    f.do(": ;: >r ;")
+    f.do(": callee 2 r> ;: 4 ;")
+    f.do(": caller 1 callee 3 ;")
+    f.do("caller")
+    assert f.S() == [1, 2, 3, 4]
+finally:
+    del f
+f = Forth(True)
+try:
+    f.do(": yield r> r> swap >r >r ;")
+    f.do(": callee 2 yield 4 ;")
+    f.do(": caller 1 callee 3 yield 5 ;")
+    f.do("caller")
+    assert f.S() == [1, 2, 3, 4, 5]
+finally:
+    del f
+
 # "base" fetches the current integer base
 f = Forth(True)
 f.do("base @")
@@ -786,7 +808,7 @@ del f
 # keeps simple postponed callers of immediate words non-immediate
 f = Forth(True)
 f.do(": tst-im 1 + ;im")
-f.do(": tst-non postpone tst-im ;")
+f.do(": tst-non postpone tst-im ;r")
 try:
     assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do(": tst 4 tst-non ;")
@@ -810,7 +832,7 @@ finally:
 # keeps immediate callers of non-immediate words immediate
 f = Forth(True)
 f.do(": tst-non 1 + ;")
-f.do(": tst-im tst-non ;im")
+f.do(": tst-im tst-non ;imr")
 try:
     assert f.names["TST-NON"] == f.names["TST-IM"]
     f.do("4 : tst tst-im literal ;")

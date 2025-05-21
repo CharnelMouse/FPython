@@ -33,21 +33,20 @@ If I ever let users define new "basic" words (equivalent to Forth letting words 
 `trace [word]` can be used to put `[word]`'s stack effect information on the stack.\
 When words are executed, the input stack and output are checked against this information.\
 For compound words, called words are not themselves checked, because their stack conditions are already satisfied when calculating the conditions for the calling word.\
-The interpreter handles immediate words, which can be defined using `;im` instead of `;`.\
 It can also handle `postpone`, to compile calls to immediate words. `postpone` on a number does nothing.
 
 The name of a word is kept separate from the definition/body.\
 This means that words with the same definition all point to the same definition, so the names are really just current aliases.\
 This is something I saw being done for the Unison language, which stores the code base in a permanent database, and compiles called words as direct hashes instead of using their given name.\
 Outside of these details, Unison function code storage screamed "modern take on a Forth dictionary" to me, so I'm putting it in this Forth.\
-If a word is defined as just calling a second word, then it's compiled as an alias of that word.\
-This allows aliases to be assigned to existing base words.\
-It also means, for example, that we can write\
-`: + + ;`\
-or\
-`: add + ; : + add ;`\
-and have `+` end up with its original definition, instead of adding unnecessary layers of indirection.\
 Compile-time execution is done using `[` and `]`, as usual.
+
+There are some alternative semicolons.\
+`;im` marks the defined word as immediate.\
+`;r` checks whether the word is a reference: if it calls another word, then returns, then it is compiled as an alias for that word instead.\
+This also means, for example, that `: + + ;r` and `: add + ;r : + add ;r` leave `+` with its original definition, instead of adding layers of indirection.\
+Note that a word being an alias of a second word, instead of calling it, has different effects for what goes on the return stack, so keep that in mind if you're doing return stack manipulation.\
+`;imr` combines the two.
 
 The orphans method shows which definitions are neither called by other words, nor currently assigned an alias.\
 "Called by other words" includes calling itself, which isn't quite right, but there's currently no way to define a word as calling itself.\
